@@ -1,0 +1,17 @@
+(bootloader) version-bootloader:ripcurrentpro-15.1-12451543
+(bootloader) version-baseband:g5400c-241205-241206-B-12701856
+(bootloader) product:caiman
+(bootloader) serialno:4A281FDJH00ABC
+(bootloader) unlocked:yes
+(bootloader) unlock_ability:1
+(bootloader) current-slot:a
+(bootloader) slot-count:2
+(bootloader) has-slot:boot:yes
+(bootloader) has-slot:init_boot:yes
+(bootloader) has-slot:modem:yes
+(bootloader) partition-size:init_boot_a:0x800000
+(bootloader) partition-type:init_boot_a:raw
+(bootloader) is-userspace:no
+(bootloader) off-mode-charge:1
+all: Done!!
+Finished. Total time: 0.112s

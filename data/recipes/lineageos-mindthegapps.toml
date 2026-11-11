@@ -1,0 +1,59 @@
+name = "LineageOS + MindTheGapps"
+description = "Clean Lineage install with Google apps, from files you supply"
+rom_profile = "lineageos"
+devices = []          # empty means any device the files match
+
+[[inputs]]
+id = "recovery"
+label = "Lineage recovery image (same build as the ROM)"
+kind = "file"
+
+[[inputs]]
+id = "rom"
+label = "LineageOS zip"
+kind = "package"
+hash = true
+
+[[inputs]]
+id = "gapps"
+label = "MindTheGapps zip for this Android version"
+kind = "file"
+
+[[steps]]
+action = "note"
+message = "Unlocking already happened if this phone is unlocked. If not, unlock first: it wipes the phone."
+
+[[steps]]
+action = "reboot"
+to = "bootloader"
+
+[[steps]]
+action = "boot_image"
+image = "{recovery}"
+
+[[steps]]
+action = "wait"
+message = "In recovery: Factory reset, Format data, then Apply update, Apply from ADB"
+until = "sideload"
+
+[[steps]]
+action = "sideload"
+file = "{rom}"
+
+[[steps]]
+action = "reboot"
+to = "recovery"       # Lineage switches slots after the ROM; add-ons go on after this reboot
+
+[[steps]]
+action = "wait"
+message = "In recovery: Apply update, Apply from ADB"
+until = "sideload"
+
+[[steps]]
+action = "sideload"
+file = "{gapps}"
+accept_unsigned = true
+
+[[steps]]
+action = "reboot"
+to = "system"

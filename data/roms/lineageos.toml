@@ -1,0 +1,24 @@
+id = "lineageos"
+name = "LineageOS"
+description = "Community Android distribution. Installed from Lineage Recovery by sideload."
+package_types = ["ota_payload", "recovery_zip"]
+install_guide_url = "https://wiki.lineageos.org/devices/<codename>/install/"
+downloads_url = "https://download.lineageos.org/devices/<codename>/builds"
+devices_url = "https://wiki.lineageos.org/devices/"
+xda_url = "https://xdaforums.com/search/?q=<codename>"
+verify = "sha256"
+relock_supported = false
+root_supported = true
+checklist = [
+  "The LineageOS zip for <codename>, from the builds page.",
+  "Its SHA-256, shown on the builds page next to the file.",
+  "Lineage Recovery (recovery.img, or boot.img on some devices) from the SAME build.",
+  "Any extra images the device's install page lists (dtbo, vendor_boot, vbmeta), same build.",
+  "Optional: a Google apps package (MindTheGapps) for the matching Android version.",
+]
+
+[[pre_steps]]
+text = "Read the device's install page. Some devices need a firmware update or a copy-partitions step first; do those before flashing."
+
+[[post_steps]]
+text = "Do not relock the bootloader with LineageOS. It is not signed for your device's verified boot."

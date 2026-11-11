@@ -1,0 +1,64 @@
+name = "GrapheneOS on a Pixel"
+description = "Factory-image install with signature check, ending in relock"
+rom_profile = "grapheneos"
+devices = []
+
+[[inputs]]
+id = "package"
+label = "<codename>-install-<version>.zip"
+kind = "package"
+
+[[inputs]]
+id = "signature"
+label = "The matching .zip.sig"
+kind = "signature"
+
+[[inputs]]
+id = "signers"
+label = "allowed_signers from GrapheneOS's install guide"
+kind = "allowed_signers"
+
+[[steps]]
+action = "note"
+message = "Unlocking wipes the phone. Pull your data before you run this."
+
+[[steps]]
+action = "wait"
+message = "On the phone: Settings, System, Developer options, turn on OEM unlocking. Then click Continue."
+
+[[steps]]
+action = "reboot"
+to = "bootloader"
+
+[[steps]]
+action = "unlock"
+
+[[steps]]
+action = "wait"
+message = "Confirm the unlock on the phone with the volume keys and power. It comes back to the bootloader."
+until = "bootloader"
+
+[[steps]]
+action = "flash_all"
+package = "{package}"
+
+[[steps]]
+action = "wait"
+message = "Flashing is done. Leave the phone in the bootloader."
+until = "bootloader"
+
+[[steps]]
+action = "lock"
+
+[[steps]]
+action = "wait"
+message = "Confirm the relock on the phone with the volume keys and power."
+until = "bootloader"
+
+[[steps]]
+action = "reboot"
+to = "system"
+
+[[steps]]
+action = "note"
+message = "After first boot you can turn OEM unlocking back off in Developer options."

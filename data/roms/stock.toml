@@ -1,0 +1,23 @@
+id = "stock"
+name = "Stock (Google factory image)"
+kind = "stock"
+description = "Google's own factory images for Pixel devices. Returns the phone to stock."
+package_types = ["factory_image"]
+install_guide_url = "https://developers.google.com/android/images#instructions"
+downloads_url = "https://developers.google.com/android/images#<codename>"
+devices_url = "https://developers.google.com/android/images"
+verify = "sha256"
+relock_supported = true
+root_supported = true
+pixel_only = true
+checklist = [
+  "The factory image zip for your codename. To root later, pick the build ID that matches the phone.",
+  "The SHA-256 Google lists next to that image, pasted into the hash box.",
+  "Or, to return to stock without wiping, the OTA zip from https://developers.google.com/android/ota#<codename> and sideload it.",
+]
+
+[[pre_steps]]
+text = "Pull anything you want to keep. Flashing a factory image with the wipe flag erases the phone."
+
+[[post_steps]]
+text = "Once it boots, you can relock the bootloader. Stock images are signed for verified boot."

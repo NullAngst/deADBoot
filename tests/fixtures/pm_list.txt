@@ -1,0 +1,3 @@
+package:/data/app/~~abc123==/com.looker.droidify-def456==/base.apk=com.looker.droidify versionCode:660 installer=null
+package:/system/priv-app/SettingsGoogle/SettingsGoogle.apk=com.android.settings versionCode:35 installer=null
+package:com.example.plain versionCode:1 installer=com.android.vending

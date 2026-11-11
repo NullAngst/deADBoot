@@ -1,0 +1,45 @@
+# Where deADBoot fetches APKs from. Always the current release, never a pinned copy.
+# kind = "github": latest release of owner/repo, asset matched by asset_regex.
+#   abi_assets = true means the project ships per-ABI APKs; the device's ABI is preferred,
+#   then a universal APK.
+# kind = "fdroid": the package from the official F-Droid repo index, which carries a SHA-256.
+
+[shizuku]
+label = "Shizuku"
+package = "moe.shizuku.privileged.api"
+kind = "github"
+owner = "RikkaApps"
+repo = "Shizuku"
+asset_regex = '(?i)^shizuku.*\.apk$'
+play_listing = true
+
+[droidify]
+label = "Droid-ify"
+package = "com.looker.droidify"
+kind = "fdroid"
+
+[obtainium]
+label = "Obtainium"
+package = "dev.imranr.obtainium"
+kind = "github"
+owner = "ImranR98"
+repo = "Obtainium"
+asset_regex = '(?i)\.apk$'
+abi_assets = true
+
+[installwithoptions]
+label = "Install With Options"
+package = "dev.zwander.installwithoptions"
+kind = "github"
+owner = "zacharee"
+repo = "InstallWithOptions"
+asset_regex = '(?i)\.apk$'
+abi_assets = true
+
+[magisk]
+label = "Magisk"
+package = "com.topjohnwu.magisk"
+kind = "github"
+owner = "topjohnwu"
+repo = "Magisk"
+asset_regex = '(?i)^magisk.*\.apk$'

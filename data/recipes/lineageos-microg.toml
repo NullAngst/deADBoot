@@ -1,0 +1,40 @@
+name = "LineageOS for microG"
+description = "Clean install of the separate LineageOS for microG builds, which ship microG built in"
+rom_profile = "lineageos"
+devices = []
+
+[[inputs]]
+id = "recovery"
+label = "Recovery image from the same LineageOS for microG build"
+kind = "file"
+
+[[inputs]]
+id = "rom"
+label = "LineageOS for microG zip (download.lineage.microg.org)"
+kind = "package"
+hash = true
+
+[[steps]]
+action = "note"
+message = "Plain LineageOS does not support the signature spoofing microG needs. This recipe is for the separate LineageOS for microG builds."
+
+[[steps]]
+action = "reboot"
+to = "bootloader"
+
+[[steps]]
+action = "boot_image"
+image = "{recovery}"
+
+[[steps]]
+action = "wait"
+message = "In recovery: Factory reset, Format data, then Apply update, Apply from ADB"
+until = "sideload"
+
+[[steps]]
+action = "sideload"
+file = "{rom}"
+
+[[steps]]
+action = "reboot"
+to = "system"

@@ -1,0 +1,16 @@
+# Normal dark
+bg = "#1e1f22"
+bg_alt = "#2b2d31"
+fg = "#e3e5e8"
+fg_dim = "#8b9096"
+accent = "#4c9aff"
+accent_fg = "#0d1117"
+border = "#3c3f45"
+input = "#16171a"
+select = "#2f4a6e"
+danger = "#ff5c5c"
+danger_fg = "#1e1f22"
+danger_bg = "#3a1d1f"
+ok = "#5fd17a"
+radius = 4
+font = "sans-serif"

@@ -1,0 +1,11 @@
+id = "generic"
+name = "Generic"
+description = "No assumptions. The package type drives the flow. Relock is refused. Follow the ROM's own guide."
+package_types = ["factory_image", "fastboot_update", "recovery_zip", "ota_payload", "loose_images"]
+verify = "sha256"
+relock_supported = false
+root_supported = true
+checklist = [
+  "Everything the ROM's own install guide lists, all from the same build.",
+  "The SHA-256 or signature the project publishes, if any.",
+]

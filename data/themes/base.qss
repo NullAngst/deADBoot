@@ -1,0 +1,257 @@
+/* deADBoot base stylesheet. Tokens between at-signs are filled from the theme's palette file. */
+
+* {
+    font-family: @font@;
+}
+
+QWidget {
+    background: @bg@;
+    color: @fg@;
+}
+
+QMainWindow, QDialog {
+    background: @bg@;
+}
+
+QToolTip {
+    background: @bg_alt@;
+    color: @fg@;
+    border: 1px solid @border@;
+    padding: 4px;
+}
+
+QGroupBox {
+    border: 1px solid @border@;
+    border-radius: @radius@px;
+    margin-top: 14px;
+    padding: 10px 8px 8px 8px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 4px;
+    color: @accent@;
+    font-weight: bold;
+}
+
+QPushButton {
+    background: @bg_alt@;
+    color: @fg@;
+    border: 1px solid @border@;
+    border-radius: @radius@px;
+    padding: 5px 12px;
+}
+
+QPushButton:hover {
+    border-color: @accent@;
+}
+
+QPushButton:pressed, QPushButton:checked {
+    background: @select@;
+}
+
+QPushButton:disabled {
+    color: @fg_dim@;
+    border-color: @bg_alt@;
+}
+
+QPushButton:default {
+    background: @accent@;
+    color: @accent_fg@;
+    border-color: @accent@;
+}
+
+/* Destructive actions: red in every theme. */
+QPushButton[danger="true"] {
+    background: @danger_bg@;
+    color: @danger@;
+    border: 1px solid @danger@;
+    font-weight: bold;
+}
+
+QPushButton[danger="true"]:hover {
+    background: @danger@;
+    color: @danger_fg@;
+}
+
+QPushButton[danger="true"]:disabled {
+    background: @bg_alt@;
+    color: @fg_dim@;
+    border-color: @border@;
+}
+
+QLabel[danger="true"] {
+    color: @danger@;
+    font-weight: bold;
+}
+
+QLineEdit, QPlainTextEdit, QTextEdit, QTextBrowser, QSpinBox, QComboBox, QListWidget, QTreeWidget, QTableWidget {
+    background: @input@;
+    color: @fg@;
+    border: 1px solid @border@;
+    border-radius: @radius@px;
+    selection-background-color: @select@;
+    selection-color: @fg@;
+}
+
+QLineEdit, QSpinBox, QComboBox {
+    padding: 3px 6px;
+}
+
+QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QSpinBox:focus {
+    border-color: @accent@;
+}
+
+QComboBox QAbstractItemView {
+    background: @input@;
+    color: @fg@;
+    selection-background-color: @select@;
+}
+
+QHeaderView::section {
+    background: @bg_alt@;
+    color: @fg@;
+    border: none;
+    border-right: 1px solid @border@;
+    border-bottom: 1px solid @border@;
+    padding: 4px;
+}
+
+QTabWidget::pane {
+    border: 1px solid @border@;
+    border-radius: @radius@px;
+    top: -1px;
+}
+
+QTabBar::tab {
+    background: @bg_alt@;
+    color: @fg_dim@;
+    border: 1px solid @border@;
+    border-bottom: none;
+    border-top-left-radius: @radius@px;
+    border-top-right-radius: @radius@px;
+    padding: 6px 12px;
+    margin-right: 2px;
+}
+
+QTabBar::tab:selected {
+    background: @bg@;
+    color: @fg@;
+    border-bottom: 2px solid @accent@;
+}
+
+/* The Flashing & Root tab label carries a danger marker in its text; its body gets a red frame. */
+QWidget#flashbody {
+    border-left: 4px solid @danger@;
+}
+
+QLabel#dropzone {
+    border: 2px dashed @accent@;
+    border-radius: @radius@px;
+    color: @fg_dim@;
+    padding: 12px;
+}
+
+QProgressBar {
+    border: 1px solid @border@;
+    border-radius: @radius@px;
+    text-align: center;
+    background: @input@;
+}
+
+QProgressBar::chunk {
+    background: @accent@;
+    border-radius: @radius@px;
+}
+
+QCheckBox::indicator, QRadioButton::indicator {
+    width: 14px;
+    height: 14px;
+}
+
+QCheckBox::indicator {
+    border: 1px solid @border@;
+    background: @input@;
+    border-radius: 3px;
+}
+
+QCheckBox::indicator:checked {
+    background: @accent@;
+    border-color: @accent@;
+}
+
+QRadioButton::indicator {
+    border: 1px solid @border@;
+    background: @input@;
+    border-radius: 7px;
+}
+
+QRadioButton::indicator:checked {
+    background: @accent@;
+    border-color: @accent@;
+}
+
+QSplitter::handle {
+    background: @border@;
+}
+
+QScrollBar:vertical, QScrollBar:horizontal {
+    background: @bg@;
+    border: none;
+    width: 11px;
+    height: 11px;
+}
+
+QScrollBar::handle {
+    background: @border@;
+    border-radius: 5px;
+    min-height: 24px;
+    min-width: 24px;
+}
+
+QScrollBar::handle:hover {
+    background: @accent@;
+}
+
+QScrollBar::add-line, QScrollBar::sub-line {
+    width: 0;
+    height: 0;
+}
+
+QStatusBar {
+    background: @bg_alt@;
+    color: @fg_dim@;
+}
+
+QLabel#toolstatus[state="ok"] {
+    color: @ok@;
+    font-weight: bold;
+}
+
+QLabel#toolstatus[state="warn"] {
+    color: @danger@;
+    font-weight: bold;
+}
+
+QLabel#dryrun {
+    color: @danger_fg@;
+    background: @danger@;
+    border-radius: @radius@px;
+    padding: 2px 8px;
+    font-weight: bold;
+}
+
+QListWidget#devicelist::item {
+    padding: 6px;
+    border-bottom: 1px solid @border@;
+}
+
+QListWidget#devicelist::item:selected {
+    background: @select@;
+    color: @fg@;
+}
+
+QPlainTextEdit#logpane {
+    font-family: monospace;
+}

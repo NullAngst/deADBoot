@@ -1,0 +1,16 @@
+# Kawaii Light: pastel pink and lavender
+bg = "#fff5fa"
+bg_alt = "#fde4f0"
+fg = "#4a2f45"
+fg_dim = "#9a7b93"
+accent = "#e85fa8"
+accent_fg = "#ffffff"
+border = "#f3bcd8"
+input = "#ffffff"
+select = "#f8cfe5"
+danger = "#d81b3c"
+danger_fg = "#ffffff"
+danger_bg = "#ffe0e6"
+ok = "#3aa86b"
+radius = 10
+font = "sans-serif"

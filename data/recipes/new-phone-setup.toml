@@ -1,0 +1,16 @@
+name = "New phone setup"
+description = "Debloat from your list, then Droid-ify and Shizuku"
+devices = []
+
+[[steps]]
+action = "debloat"
+list = "lists/my-bloat.txt"
+mode = "remove"       # or "disable"
+
+[[steps]]
+action = "install_apk"
+source = "droidify"
+
+[[steps]]
+action = "shizuku_setup"
+client = "droidify"

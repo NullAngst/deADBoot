@@ -1,0 +1,9 @@
+List of devices attached
+4A281FDJH00ABC	device usb:3-2 product:caiman model:Pixel_9_Pro device:caiman transport_id:4
+R58N12ABCDE	unauthorized usb:3-1 transport_id:5
+0123456789	no permissions (missing udev rules? user is in the plugdev group); see [http://developer.android.com/tools/device.html] usb:1-4 transport_id:2
+192.168.1.40:41235	offline transport_id:7
+emulator-5554	device product:sdk_gphone64_x86_64 model:sdk_gphone64_x86_64 device:emu64xa transport_id:1
+ZY22ABCD	recovery usb:1-1 product:lineage_caiman model:Pixel_9_Pro device:caiman transport_id:9
+ZY22EFGH	sideload transport_id:10
+

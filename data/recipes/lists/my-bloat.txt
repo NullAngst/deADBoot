@@ -1,0 +1,9 @@
+# Your bloat list. One package name per line, # for comments.
+# The Debloat tab's Export button writes a list like this from a device you already cleaned up.
+# Packages that aren't installed are skipped, and the do-not-touch list always wins.
+com.facebook.appmanager
+com.facebook.services
+com.facebook.system
+com.netflix.partner.activation
+com.amazon.appmanager
+com.amazon.mShop.android.shopping

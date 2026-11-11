@@ -1,0 +1,16 @@
+# Kawaii Dark: candy pink and lavender on plum
+bg = "#241827"
+bg_alt = "#33223a"
+fg = "#f6e3f1"
+fg_dim = "#a98aa3"
+accent = "#ff8ac6"
+accent_fg = "#241827"
+border = "#4d3555"
+input = "#1c1220"
+select = "#5a3466"
+danger = "#ff4d6d"
+danger_fg = "#241827"
+danger_bg = "#46202c"
+ok = "#7be0a6"
+radius = 10
+font = "sans-serif"

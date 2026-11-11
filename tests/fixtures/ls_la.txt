@@ -1,0 +1,8 @@
+total 64
+drwxrwx--x  14 root   sdcard_rw 3488 2025-01-10 09:12 .
+drwx--x--x   4 root   sdcard_rw 3488 2025-01-01 00:00 ..
+drwxrws---   5 u0_a90 media_rw  3488 2025-01-12 18:40 Android
+drwxrws---   4 u0_a90 media_rw  3488 2025-01-11 07:22 DCIM
+-rw-rw----   1 u0_a90 media_rw 104857 2025-01-09 13:05 notes with spaces.txt
+lrwxrwxrwx   1 root   root        21 2025-01-01 00:00 sdcard -> /storage/self/primary
+crw-rw-rw-   1 root   root     1,   3 2025-01-01 00:00 null

@@ -1,0 +1,16 @@
+# Verdigris: weathered copper green over dark bronze
+bg = "#14201d"
+bg_alt = "#1d2e2a"
+fg = "#d8e8e1"
+fg_dim = "#7e9a91"
+accent = "#43b3a0"
+accent_fg = "#0c1513"
+border = "#2f4842"
+input = "#0f1816"
+select = "#245247"
+danger = "#ff6b57"
+danger_fg = "#14201d"
+danger_bg = "#3b1f1a"
+ok = "#8fd694"
+radius = 3
+font = "sans-serif"

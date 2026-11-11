@@ -1,0 +1,34 @@
+id = "grapheneos"
+name = "GrapheneOS"
+description = "Hardened Android for Pixels. Signed factory images, relocking supported and recommended."
+package_types = ["factory_image"]
+install_guide_url = "https://grapheneos.org/install/cli"
+downloads_url = "https://grapheneos.org/releases#<codename>-stable"
+devices_url = "https://grapheneos.org/faq#supported-devices"
+verify = "ssh-keygen"
+relock_supported = true
+root_supported = false
+min_fastboot = "35.0.1"
+pixel_only = true
+checklist = [
+  "<codename>-install-<version>.zip from the releases page (stable channel).",
+  "The matching <codename>-install-<version>.zip.sig, same build.",
+  "allowed_signers from the CLI install guide. deADBoot keeps a copy and tells you if it ever changes.",
+]
+
+[signature]
+namespace = "factory images"
+identity = "contact@grapheneos.org"
+key_url = "https://releases.grapheneos.org/allowed_signers"
+key_file_name = "allowed_signers"
+signature_suffix = ".sig"
+expect = 'Good "factory images" signature'
+
+[[pre_steps]]
+text = "On the phone: Settings, System, Developer options, turn on OEM unlocking. Needs an internet connection on stock Pixels."
+
+[[post_steps]]
+text = "Relock the bootloader (fastboot flashing lock) and confirm on the phone. GrapheneOS sets its own verified boot key, so this is safe and recommended."
+
+[[post_steps]]
+text = "After first boot, you can turn OEM unlocking back off in Developer options."
