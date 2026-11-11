@@ -1,0 +1,137 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Unit tests and AppImage
+    # The oldest Ubuntu LTS GitHub still offers: an AppImage only runs on a glibc at least this old.
+    # Bump this when GitHub retires it (maintenance.md covers the check).
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Qt runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 \
+            libdbus-1-3 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0 \
+            libxcb-randr0 libxcb-render-util0 libxcb-image0 shellcheck
+
+      - name: Unit tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+          python -m pytest -q tests --ignore=tests/emulator
+
+      - name: Self-test from source
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m deadboot --self-test
+
+      - name: Shellcheck build and test scripts
+        run: shellcheck build/appimage.sh build/latest-api.sh tests/emulator/build_test_apks.sh tests/emulator/run.sh
+
+      - name: Build AppImage
+        # Called through bash: files uploaded with GitHub's web UI lose the executable bit.
+        run: bash build/appimage.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deADBoot-linux
+          path: |
+            dist/deADBoot-x86_64.AppImage
+            dist/deADBoot-x86_64.AppImage.sha256
+
+  emulator:
+    name: ADB paths against the Android emulator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Python dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+
+      - name: Pick the newest system image
+        id: api
+        run: bash build/latest-api.sh
+
+      - name: Run emulator tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ steps.api.outputs.api }}
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: true
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect
+          script: bash tests/emulator/run.sh
+
+  windows:
+    name: Unit tests and Windows EXE
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Build
+        run: pwsh -File build/windows.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deADBoot-windows
+          path: |
+            dist/deADBoot.exe
+            dist/deADBoot.exe.sha256
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, emulator, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/deADBoot-x86_64.AppImage
+            artifacts/deADBoot-x86_64.AppImage.sha256
+            artifacts/deADBoot.exe
+            artifacts/deADBoot.exe.sha256
