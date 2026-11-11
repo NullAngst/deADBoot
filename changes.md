@@ -1,5 +1,22 @@
 # Changes
 
+2026.11.11 - Emulator test hardening
+
+* tests/emulator/run.sh waits until shared storage is usable and adb has answered ten checks in a row before starting, and prints adb devices, the crash log and adbd/storage log lines when a test fails
+* Every emulator test now waits for the device to be online first, so one dropped connection can't fail the test after it
+* test_push_pull retries once and reports which case it hit: the emulator dropping out (passes, with a note), pull -a failing repeatedly while plain pull works (fails), or pull failing outright (fails)
+* More candidate system apps for the remove-and-restore test, which was skipped on the newest image
+
+Reasons for changes: the first emulator run in Actions lost its adb connection for a moment. A pull exited 1 with no output, the next test got "device offline", and the three tests after that passed. The log could not say whether the new image was still settling or whether pull -a caused it, so the test now tells those apart.
+
+2026.11.11 - Build fix
+
+* build/appimage.sh makes the AppDir world-readable (chmod -R a+rX) before packing
+* The AppImage icon is now a 256x256 PNG rendered from data/deadboot.svg with the bundled Qt; the SVG .DirIcon is gone
+* Desktop entry lists one main category (Utility)
+
+Reasons for changes: the first AppImage build in Actions failed. mktemp creates the build folder with mode 0700 and the current appimagetool refuses to pack an AppDir other users can't read. It also warned that an SVG .DirIcon will become an error in a future release.
+
 2026.11.11 - Initial release
 
 * PyQt6 desktop app wrapping adb, fastboot, heimdall and scrcpy, with one runner that every command goes through: argument lists only, serial always added, live log pane, daily action log kept 30 days, dry-run mode

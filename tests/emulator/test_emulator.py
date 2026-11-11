@@ -24,9 +24,13 @@ SERIAL = os.environ.get("ANDROID_SERIAL", "emulator-5554")
 APKS = Path(os.environ.get("DEADBOOT_TEST_APKS", "test-apks"))
 TEST_PKG = "dev.deadboot.testapp"
 OLD_PKG = "dev.deadboot.oldapp"
+# Harmless preinstalled apps to remove and restore. The first one the image has is used.
 SYSTEM_CANDIDATES = ("com.android.deskclock", "com.android.calculator2", "com.android.camera2",
                      "com.android.gallery3d", "com.android.music", "com.android.soundrecorder",
-                     "com.android.wallpaper.livepicker", "com.android.dreams.basic", "com.android.egg")
+                     "com.android.wallpaper.livepicker", "com.android.dreams.basic", "com.android.egg",
+                     "com.android.htmlviewer", "com.android.printspooler", "com.android.bips",
+                     "com.android.traceur", "com.android.musicfx", "com.android.bookmarkprovider",
+                     "com.android.wallpaperbackup", "com.android.dreams.phototable")
 
 
 @pytest.fixture(scope="module")
@@ -40,6 +44,29 @@ def runner(qapp):
     tools = Tools(Settings())
     assert tools.available("adb"), "adb must be on PATH"
     return Runner(tools, ActionLog())
+
+
+def wait_online(runner, timeout=120.0):
+    """Block until the emulator answers a shell command. Returns how long it was unreachable."""
+    start = time.time()
+    while time.time() - start < timeout:
+        runner.run_blocking(Command("adb", ["wait-for-device"], SERIAL, timeout_s=30), quiet=True)
+        r = runner.run_blocking(Command("adb", ["shell", "echo online"], SERIAL, timeout_s=15), quiet=True)
+        if r.ok and "online" in r.out:
+            return time.time() - start
+        time.sleep(1)
+    pytest.fail(f"emulator did not come back online within {timeout:.0f}s")
+
+
+def describe(runner):
+    r = runner.run_blocking(Command("adb", ["devices", "-l"]), quiet=True)
+    return r.out.strip()
+
+
+@pytest.fixture(autouse=True)
+def online(runner):
+    """A dropped connection in one test must not take the next test down with it."""
+    wait_online(runner)
 
 
 @pytest.fixture
@@ -90,14 +117,35 @@ def test_low_target_sdk_bypass(ops):
     ops.uninstall(OLD_PKG, keep_data=False)
 
 
-def test_push_pull(ops, tmp_path):
+def test_push_pull(ops, runner, tmp_path):
     src = tmp_path / "hello file.txt"
     src.write_bytes(os.urandom(200_000))
-    assert ops.push(str(src), "/sdcard/Download/deadboot-test.txt").ok
-    back = tmp_path / "back.txt"
-    assert ops.pull("/sdcard/Download/deadboot-test.txt", str(back), preserve=True).ok
-    assert back.read_bytes() == src.read_bytes()
-    ops.shell("rm -f /sdcard/Download/deadboot-test.txt", writes=True)
+    remote = "/sdcard/Download/deadboot-test.txt"
+    assert ops.push(str(src), remote).ok
+    assert ops.qshell(f"stat -c %s {remote}").strip() == "200000"
+
+    def pull(preserve):
+        back = tmp_path / f"back-{'a' if preserve else 'plain'}.txt"
+        back.unlink(missing_ok=True)
+        r = ops.pull(remote, str(back), preserve=preserve)
+        good = r.ok and back.is_file() and back.read_bytes() == src.read_bytes()
+        return good, r
+
+    # One retry, the way the Files queue retries after a dropped cable. What happens on the retry says
+    # whether the first failure was the emulator dropping out or pull -a itself.
+    ok, first = pull(preserve=True)
+    if not ok:
+        state = describe(runner)
+        waited = wait_online(runner)
+        ok_again, second = pull(preserve=True)
+        ok_plain, plain = pull(preserve=False)
+        detail = (f"first pull -a: exit {first.code} {first.text!r}; adb devices then: {state!r}; "
+                  f"back online after {waited:.1f}s; second pull -a: exit {second.code} {second.text!r}; "
+                  f"plain pull: exit {plain.code} {plain.text!r}")
+        assert ok_plain, "adb pull fails even without -a. " + detail
+        assert ok_again, "adb pull -a fails repeatedly while plain pull works: -a breaks on this image. " + detail
+        print("NOTE: the emulator dropped offline during the first pull and the retry passed. " + detail)
+    ops.shell(f"rm -f {remote}", writes=True)
 
 
 def test_debloat_disable_and_restore(ops, tmp_path):
