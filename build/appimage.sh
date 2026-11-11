@@ -115,8 +115,24 @@ fi
 exec "\$here/$pyrel" -s -m deadboot "\$@"
 EOF
 chmod +x "$appdir/AppRun"
-cp -- "$root/data/deadboot.svg" "$appdir/deadboot.svg"
-cp -- "$root/data/deadboot.svg" "$appdir/.DirIcon"
+# appimagetool wants a PNG icon and builds .DirIcon from it. Qt is already in the bundle, so it renders the SVG.
+QT_QPA_PLATFORM=offscreen "$py" -s - "$root/data/deadboot.svg" "$appdir/deadboot.png" <<'PY'
+import sys
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QGuiApplication, QImage, QPainter
+from PyQt6.QtSvg import QSvgRenderer
+app = QGuiApplication(sys.argv[:1])
+img = QImage(256, 256, QImage.Format.Format_ARGB32)
+img.fill(Qt.GlobalColor.transparent)
+painter = QPainter(img)
+QSvgRenderer(sys.argv[1]).render(painter)
+painter.end()
+if not img.save(sys.argv[2], "PNG"):
+    sys.exit("could not write the icon PNG")
+PY
+mkdir -p -- "$appdir/usr/share/icons/hicolor/256x256/apps" "$appdir/usr/share/icons/hicolor/scalable/apps"
+cp -- "$appdir/deadboot.png" "$appdir/usr/share/icons/hicolor/256x256/apps/deadboot.png"
+cp -- "$root/data/deadboot.svg" "$appdir/usr/share/icons/hicolor/scalable/apps/deadboot.svg"
 cat >"$appdir/deadboot.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
@@ -125,14 +141,16 @@ GenericName=Android device utility
 Comment=ADB file transfer, app install, screen mirroring, data rescue, flashing and root
 Exec=deadboot
 Icon=deadboot
-Categories=Utility;Development;
+Categories=Utility;
 Terminal=false
 EOF
 
 # 6. Smoke test the AppDir before packing: loads Qt, every theme and every ROM profile.
 QT_QPA_PLATFORM=offscreen "$appdir/AppRun" --self-test
 
-# 7. Pack.
+# 7. Pack. mktemp makes the folder 0700 and appimagetool refuses an AppDir other users can't read,
+#    since an AppImage is run by people other than whoever built it.
+chmod -R a+rX -- "$appdir"
 curl -fsSL -o "$work/appimagetool" \
     "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$arch.AppImage"
 chmod +x "$work/appimagetool"
