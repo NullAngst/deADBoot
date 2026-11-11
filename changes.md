@@ -1,5 +1,13 @@
 # Changes
 
+2026.11.11 - CI hardening
+
+* New build/apt-install.sh retries apt up to five times with growing waits; the Linux job uses it for the Qt runtime libraries
+* The emulator job no longer installs any apt packages, since its tests only use QtCore
+* build/apt-install.sh added to the shellcheck step
+
+Reasons for changes: a release run failed in the Linux and emulator jobs because GitHub's runners could not resolve Ubuntu's package mirrors during apt-get. Nothing in deADBoot was at fault, but the emulator job did not need apt at all and the Linux job can ride out a short outage.
+
 2026.11.11 - Emulator test hardening
 
 * tests/emulator/run.sh waits until shared storage is usable and adb has answered ten checks in a row before starting, and prints adb devices, the crash log and adbd/storage log lines when a test fails
