@@ -24,11 +24,11 @@ jobs:
           python-version: "3.x"
 
       - name: Qt runtime libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 \
-            libdbus-1-3 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0 \
-            libxcb-randr0 libxcb-render-util0 libxcb-image0 shellcheck
+        # Retries when GitHub's runners can't reach Ubuntu's mirrors.
+        run: >-
+          bash build/apt-install.sh libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1
+          libdbus-1-3 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0
+          libxcb-randr0 libxcb-render-util0 libxcb-image0 shellcheck
 
       - name: Unit tests
         env:
@@ -44,7 +44,7 @@ jobs:
         run: python -m deadboot --self-test
 
       - name: Shellcheck build and test scripts
-        run: shellcheck build/appimage.sh build/latest-api.sh tests/emulator/build_test_apks.sh tests/emulator/run.sh
+        run: shellcheck build/appimage.sh build/apt-install.sh build/latest-api.sh tests/emulator/build_test_apks.sh tests/emulator/run.sh
 
       - name: Build AppImage
         # Called through bash: files uploaded with GitHub's web UI lose the executable bit.
@@ -74,9 +74,8 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Python dependencies
+        # No apt packages here: the emulator tests only use QtCore (QProcess), which needs no system libraries.
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pytest
 
