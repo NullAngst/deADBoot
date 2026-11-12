@@ -2,10 +2,10 @@
 
 2026.11.12 - Build fix
 
-* The window-width test measures in average character widths instead of pixels: at most 150 characters for the window and 110 for any tab
+* The window-width test measures in characters of real text: it times a sample sentence in the font in use and divides by that. Limits: 300 characters for the window, 250 for any tab
 * When it fails, it prints the font in use and every tab's width, so the log shows which tab grew
 
-Reasons for changes: the Windows build failed on the new test (window 1456 px against a 1100 px limit). The offscreen Qt platform renders text at a different size on each runner; Linux came out at 930 px. Scaling the font 1.5x on Linux gives the same jump while the width in characters stays put (about 100 to 116, against about 300 before the fix), so the width was the font, not a new unwrapped label.
+Reasons for changes: the new window-width test broke both builds. A pixel limit failed on Windows, where the offscreen platform draws text about 1.5x wider (1456 px there, 930 px on Linux). Switching to Qt's "average character width" then failed on Linux: that number is read from the font file, and the runner's font said 6 px where the same-named font here says 8 px, so a fine 952 px window counted as too wide. Measured on real text across seven fonts from 6.3pt to 14.4pt, the fixed build is at most 176 characters per tab and 255 for the window, and the original bug is at least 367 and 395. The limits sit between the two.
 
 2026.11.12 - UX overhaul / Bug fixes
 

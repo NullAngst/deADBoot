@@ -117,30 +117,44 @@ def _window(qapp):
     return MainWindow(ctx)
 
 
-def test_window_fits_one_ordinary_monitor(qapp):
-    """Measured in average character widths, not pixels.
+SAMPLE = "Removes carrier and vendor bloat without root, both methods are reversible. "
 
-    The offscreen platform picks a different font and size on each OS (the Windows runner's text came out
-    about 1.5x wider than Linux's), so a pixel limit fails on one runner and passes on another. The bug this
-    guards against was a few hundred characters of unwrapped help text on one line: about 300 characters
-    wide before the fix, about 115 after, at any font size.
+
+def text_px_per_char(font) -> float:
+    """How wide one character of ordinary English text is in this font, measured on real text.
+
+    QFontMetrics.averageCharWidth() reads a number stored in the font file, and fonts disagree about it:
+    two runners both reporting Sans Serif 9pt said 8 px and 6 px. Measuring a real sentence doesn't depend
+    on that.
     """
-    from PyQt6.QtGui import QFontMetrics
+    from PyQt6.QtGui import QFontMetricsF
+    return QFontMetricsF(font).horizontalAdvance(SAMPLE * 4) / (len(SAMPLE) * 4)
+
+
+def width_report(qapp):
     win = _window(qapp)
-    try:
-        char = max(1, QFontMetrics(qapp.font()).averageCharWidth())
-        f = qapp.font()
-        widths = {t.title: t.minimumSizeHint().width() for t in win.tab_list}
-        window = win.minimumSizeHint().width()
-        report = (f"font {f.family()} {f.pointSizeF()}pt, average character {char}px; window {window}px = "
-                  f"{window / char:.0f} chars; " +
-                  ", ".join(f"{k} {v}px = {v / char:.0f} chars" for k, v in widths.items()))
-        assert window / char <= 150, "main window too wide, a long unwrapped label or button row crept back in: " \
-            + report
-        wide = [k for k, v in widths.items() if v / char > 110]
-        assert not wide, f"too wide: {', '.join(wide)}. " + report
-    finally:
-        win.close()
+    per = text_px_per_char(qapp.font())
+    widths = {t.title: t.minimumSizeHint().width() / per for t in win.tab_list}
+    window = win.minimumSizeHint().width() / per
+    f = qapp.font()
+    report = (f"font {f.family()} {f.pointSizeF()}pt, {per:.1f}px per character of text; "
+              f"window {win.minimumSizeHint().width()}px = {window:.0f} chars; " +
+              ", ".join(f"{k} {v:.0f} chars" for k, v in widths.items()))
+    win.close()
+    return window, widths, report
+
+
+def test_window_fits_one_ordinary_monitor(qapp):
+    """Measured in characters of text, not pixels, since each runner's offscreen platform uses its own font.
+
+    Checked across seven fonts from 6.3pt to 14.4pt: the fixed build measures 100 to 176 characters per tab and
+    123 to 255 for the window (fixed-pixel parts like the device panel count for more at small sizes). With the
+    bug put back it measures 367+ per tab and 395+ for the window. The limits sit between the two.
+    """
+    window, widths, report = width_report(qapp)
+    assert window <= 300, "main window too wide, a long unwrapped label or button row crept back in: " + report
+    wide = [k for k, v in widths.items() if v > 250]
+    assert not wide, f"too wide: {', '.join(wide)}. " + report
 
 
 def test_debloat_ticks_survive_filtering(qapp, monkeypatch):
