@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QFileDialo
 from ... import debloat, downloads, hostplatform, parsers
 from ...devicestate import DeviceState
 from ...ops import SHIZUKU_PKG
-from ..common import Tab, ask, confirm_device, info, pick_dir, pick_files, typed_confirm, warn
+from ..common import Tab, ask, confirm_device, info, para, pick_dir, pick_files, typed_confirm, warn
 
 ADB_MODES = {"device"}
 
@@ -174,9 +174,9 @@ class InstallPage(QWidget):
         super().__init__()
         self.tab = tab
         lay = QVBoxLayout(self)
-        lay.addWidget(QLabel("adb install uses the shell install path: no 'install unknown apps' toggle, "
-                             "Play Protect left on, and exempt from Google's developer verification as of this "
-                             "build. Pick one APK, several split APKs of one app, or an .apks / .xapk bundle."))
+        lay.addWidget(para("adb install uses the shell install path: no 'install unknown apps' toggle, "
+                           "Play Protect left on, and exempt from Google's developer verification as of this "
+                           "build. Pick one APK, several split APKs of one app, or an .apks / .xapk bundle."))
         row = QHBoxLayout()
         self.add_btn = QPushButton("&Add APK or bundle...")
         self.clear_btn = QPushButton("C&lear")
@@ -192,14 +192,19 @@ class InstallPage(QWidget):
         self.d = QCheckBox("Allow downgrade (-d)")
         self.g = QCheckBox("Grant all runtime permissions (-g)")
         self.b = QCheckBox("Bypass low-target-SDK block (Android 14+)")
-        for w in (self.r, self.d, self.g, self.b):
+        for w in (self.r, self.d):
+            opts.addWidget(w)
+        opts.addStretch(1)
+        lay.addLayout(opts)
+        opts = QHBoxLayout()
+        for w in (self.g, self.b):
             opts.addWidget(w)
         opts.addStretch(1)
         lay.addLayout(opts)
         self.install_btn = tab.gate(QPushButton("&Install"), ADB_MODES)
         lay.addWidget(self.install_btn)
 
-        lay.addWidget(QLabel("<b>Quick installs</b> (current release, hash checked where the project publishes one)"))
+        lay.addWidget(para("<b>Quick installs</b> (current release, hash checked where the project publishes one)"))
         q = QHBoxLayout()
         self.quick: dict[str, QPushButton] = {}
         for key, label in (("shizuku", "Shi&zuku"), ("droidify", "Droid-&ify"), ("obtainium", "&Obtainium"),
@@ -208,10 +213,13 @@ class InstallPage(QWidget):
             b.clicked.connect(lambda _c=False, k=key: self.quick_install(k))
             self.quick[key] = b
             q.addWidget(b)
-        self.shizuku_start = tab.gate(QPushButton("Run Shizuku &activation"), ADB_MODES)
+        q.addStretch(1)
+        lay.addLayout(q)
+        q = QHBoxLayout()
+        self.shizuku_start = tab.gate(QPushButton("Start Shizuku (&activation)"), ADB_MODES)
         self.shizuku_start.clicked.connect(lambda: tab.app.window.tabs_by_name["F-Droid Setup"].start_shizuku())
         q.addWidget(self.shizuku_start)
-        q.addStretch(1)
+        q.addWidget(para("The F-Droid Setup tab walks through Shizuku and a client step by step."), 1)
         lay.addLayout(q)
 
         self.add_btn.clicked.connect(self.add)
@@ -305,6 +313,12 @@ class InstallPage(QWidget):
             ops = self.tab.app.ops(w)
             if key == "shizuku" and ops.package_installed(SHIZUKU_PKG):
                 return "already", None
+            names = downloads.package_names(downloads.load_sources().get(key, {}))
+            other = ops.installed_variant(names[1:])
+            if other and not ops.package_installed(names[0]):
+                # Its other build (F-Droid) is on the phone under another name; installing this one
+                # would leave two copies side by side.
+                return "other", other
             fetched = downloads.fetch_source(key, hostplatform.cache_dir() / "apks", hostplatform.cache_dir(),
                                              ops.abi())
             self.tab.app.runner.line.emit(f"# {key} {fetched.version}: {fetched.detail}")
@@ -314,6 +328,11 @@ class InstallPage(QWidget):
             fetched, r = res
             if fetched == "already":
                 info(self, "Shizuku", "Shizuku is already installed.")
+                return
+            if fetched == "other":
+                info(self, key, f"{key} is already installed as {r} (its F-Droid build), which updates itself "
+                                "or through F-Droid. Not installing a second copy. Uninstall that one first if "
+                                "you want the GitHub build.")
                 return
             note = "" if fetched.verified_by_project else f"\n\nNote: {fetched.detail}."
             if r.ok:
@@ -326,50 +345,77 @@ class InstallPage(QWidget):
 
 
 class DebloatPage(QWidget):
+    """Carrier and vendor bloat. Ticks live in self.marked, so filtering and searching never lose them."""
+
+    COLS = ("Package", "Type", "State", "Note")
+
     def __init__(self, tab: "AppsTab"):
         super().__init__()
         self.tab = tab
+        self.common = debloat.load_common()
         lay = QVBoxLayout(self)
-        lay.addWidget(QLabel(
+        lay.addWidget(para(
             "Removes carrier and vendor bloat without root. Both methods are reversible without a factory reset. "
             "Removing the wrong vendor service can break a camera, a fingerprint reader or OTA updates: disable "
-            "first, live with it a few days, then remove. Packages on the do-not-touch list can't be selected. "
+            "first, live with it a few days, then remove. Packages on the do-not-touch list can't be ticked. "
             "adb has no command for app display names, so packages are listed by name."))
+        row = QHBoxLayout()
+        self.load_btn = tab.gate(QPushButton("&Load packages"), ADB_MODES)
+        self.mark_btn = tab.gate(QPushButton("&Mark common bloat"), ADB_MODES)
+        self.mark_btn.setToolTip("Ticks packages on the common bloat list (Facebook, Amazon, TikTok, carrier "
+                                 "extras, silent app installers...). Nothing is removed until you press "
+                                 "Disable or Remove.")
+        self.clear_btn = QPushButton("&Clear ticks")
+        self.only_marked = QCheckBox("Show &ticked only")
+        for w in (self.load_btn, self.mark_btn, self.clear_btn, self.only_marked):
+            row.addWidget(w)
+        row.addStretch(1)
+        self.count_lab = QLabel("")
+        row.addWidget(self.count_lab)
+        lay.addLayout(row)
         row = QHBoxLayout()
         self.vendor = QComboBox()
         self.vendor.addItems(list(debloat.VENDOR_PREFIXES))
         self.search = QLineEdit()
         self.search.setPlaceholderText("Search packages")
-        self.load_btn = tab.gate(QPushButton("&Load packages"), ADB_MODES)
         row.addWidget(QLabel("Vendor:"))
         row.addWidget(self.vendor)
         row.addWidget(self.search, 1)
-        row.addWidget(self.load_btn)
         lay.addLayout(row)
-        self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["Package", "State", "Note"])
+        self.table = QTableWidget(0, len(self.COLS))
+        self.table.setHorizontalHeaderLabels(list(self.COLS))
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         lay.addWidget(self.table, 1)
         act = QHBoxLayout()
-        self.disable_btn = tab.gate(QPushButton("&Disable selected"), ADB_MODES)
-        self.remove_btn = tab.gate(QPushButton("&Remove selected for user 0"), ADB_MODES)
+        self.disable_btn = tab.gate(QPushButton("&Disable ticked"), ADB_MODES)
+        self.remove_btn = tab.gate(QPushButton("&Remove ticked for user 0"), ADB_MODES)
         self.remove_btn.setProperty("danger", True)
-        self.restore_btn = tab.gate(QPushButton("Re&store selected"), ADB_MODES)
+        self.restore_btn = tab.gate(QPushButton("Re&store ticked"), ADB_MODES)
+        for w in (self.disable_btn, self.remove_btn, self.restore_btn):
+            act.addWidget(w)
+        act.addStretch(1)
+        lay.addLayout(act)
+        act = QHBoxLayout()
         self.restore_all_btn = tab.gate(QPushButton("Restore &all recorded"), ADB_MODES)
         self.reapply_btn = tab.gate(QPushButton("Re-a&pply recorded list"), ADB_MODES)
         self.export_btn = tab.gate(QPushButton("&Export list..."), None)
         self.import_btn = tab.gate(QPushButton("&Import list..."), ADB_MODES)
-        for w in (self.disable_btn, self.remove_btn, self.restore_btn, self.restore_all_btn, self.reapply_btn,
-                  self.export_btn, self.import_btn):
+        for w in (self.restore_all_btn, self.reapply_btn, self.export_btn, self.import_btn):
             act.addWidget(w)
         act.addStretch(1)
         lay.addLayout(act)
-        self.data: list[tuple[str, str]] = []     # (package, state)
+        self.data: list[tuple[str, str, str]] = []     # (package, state, type)
         self.guard: set[str] = set()
+        self.marked: set[str] = set()
         self.load_btn.clicked.connect(self.load)
+        self.mark_btn.clicked.connect(self.mark_common)
+        self.clear_btn.clicked.connect(self.clear_marks)
+        self.only_marked.toggled.connect(self.render)
         self.vendor.currentTextChanged.connect(self.render)
         self.search.textChanged.connect(self.render)
+        self.table.itemChanged.connect(self.item_changed)
         self.disable_btn.clicked.connect(lambda: self.apply("disable"))
         self.remove_btn.clicked.connect(lambda: self.apply("remove"))
         self.restore_btn.clicked.connect(self.restore_selected)
@@ -377,57 +423,115 @@ class DebloatPage(QWidget):
         self.reapply_btn.clicked.connect(self.reapply)
         self.export_btn.clicked.connect(self.export)
         self.import_btn.clicked.connect(self.import_list)
+        self.update_count()
 
     def state(self) -> DeviceState:
         return DeviceState(self.tab.dev.serial)
 
+    def reset(self) -> None:
+        self.data = []
+        self.marked.clear()
+        self.table.setRowCount(0)
+        self.update_count()
+
     def load(self) -> None:
+        common = self.common
+        record = self.state().debloat_record() if self.tab.dev else {}
+
         def work(_w):
             ops = self.tab.app.ops()
-            system = parsers.parse_package_names(ops.qshell("pm list packages -s"))
+            # -u includes packages already removed for user 0, so they can be restored from here.
+            system = parsers.parse_package_names(ops.qshell("pm list packages -s -u"))
+            third = parsers.parse_package_names(ops.qshell("pm list packages -3 -u"))
             disabled = parsers.parse_package_names(ops.qshell("pm list packages -d"))
-            every = parsers.parse_package_names(ops.qshell("pm list packages -u"))
             installed = parsers.parse_package_names(ops.qshell("pm list packages"))
-            removed = every - installed
             guard = self.tab.app.protected | ops.dynamic_protected()
+            # User apps only appear when they are known bloat (TikTok, Candy Crush and friends that carrier
+            # installers drop in during setup) or already in this device's debloat record.
+            wanted_user = {p for p in third if common.group(p) or p in record}
             rows = []
-            for p in sorted(system | removed):
-                st = "removed" if p in removed else "disabled" if p in disabled else "enabled"
-                rows.append((p, st))
+            for p in sorted(system | wanted_user):
+                st = "removed" if p not in installed else "disabled" if p in disabled else "enabled"
+                rows.append((p, st, "user" if p in third else "system"))
             return rows, guard
 
         def done(res):
             self.data, self.guard = res
+            known = {p for p, _s, _t in self.data}
+            self.marked &= known - self.guard
             self.render()
 
         self.tab.job(work, done)
 
+    def mark_common(self) -> None:
+        if not self.data:
+            info(self, "Mark common bloat", "Press Load packages first.")
+            return
+        hits = [p for p, _s, _t in self.data if p not in self.guard and self.common.group(p)]
+        new = [p for p in hits if p not in self.marked]
+        self.marked.update(hits)
+        self.vendor.setCurrentText("All")
+        self.search.clear()
+        self.render()
+        if not hits:
+            info(self, "Mark common bloat", "Nothing on this phone matches the common bloat list.")
+            return
+        groups = sorted({self.common.group(p) for p in hits})
+        info(self, "Mark common bloat",
+             f"Ticked {len(new)} package(s) from the common bloat list ({len(hits)} match in total), in: "
+             f"{', '.join(groups)}.\n\nNothing has been removed. Ticked packages are listed first. Scroll "
+             "through, untick anything you use, tick anything else you want gone, then press Disable ticked "
+             "or Remove ticked.")
+
+    def clear_marks(self) -> None:
+        self.marked.clear()
+        self.render()
+
+    def item_changed(self, it: QTableWidgetItem) -> None:
+        if it.column() != 0 or not (it.flags() & Qt.ItemFlag.ItemIsUserCheckable):
+            return
+        if it.checkState() == Qt.CheckState.Checked:
+            self.marked.add(it.text())
+        else:
+            self.marked.discard(it.text())
+        self.update_count()
+
+    def update_count(self) -> None:
+        self.count_lab.setText(f"{len(self.marked)} ticked")
+
     def render(self) -> None:
         vendor = self.vendor.currentText()
         q = self.search.text().strip().lower()
+        only = self.only_marked.isChecked()
         record = self.state().debloat_record() if self.tab.dev else {}
-        rows = [(p, s) for p, s in self.data if debloat.matches_vendor(p, vendor) and q in p.lower()]
+        rows = [(p, s, t) for p, s, t in self.data
+                if debloat.matches_vendor(p, vendor) and q in p.lower() and (not only or p in self.marked)]
+        rows.sort(key=lambda r: (r[0] not in self.marked, r[0]))     # ticked first
+        self.table.blockSignals(True)
         self.table.setRowCount(len(rows))
-        for i, (p, s) in enumerate(rows):
+        for i, (p, s, t) in enumerate(rows):
             it = QTableWidgetItem(p)
+            notes = []
             if p in self.guard:
                 it.setFlags(Qt.ItemFlag.ItemIsEnabled)
-                note = "do-not-touch"
+                notes.append("do-not-touch")
             else:
                 it.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
-                it.setCheckState(Qt.CheckState.Unchecked)
-                note = f"recorded: {record[p]['mode']}" if p in record else ""
+                it.setCheckState(Qt.CheckState.Checked if p in self.marked else Qt.CheckState.Unchecked)
+                group = self.common.group(p)
+                if group:
+                    notes.append(group)
+                if p in record:
+                    notes.append(f"recorded: {record[p]['mode']}")
             self.table.setItem(i, 0, it)
-            self.table.setItem(i, 1, QTableWidgetItem(s))
-            self.table.setItem(i, 2, QTableWidgetItem(note))
+            self.table.setItem(i, 1, QTableWidgetItem(t))
+            self.table.setItem(i, 2, QTableWidgetItem(s))
+            self.table.setItem(i, 3, QTableWidgetItem("; ".join(notes)))
+        self.table.blockSignals(False)
+        self.update_count()
 
     def checked(self) -> list[str]:
-        out = []
-        for i in range(self.table.rowCount()):
-            it = self.table.item(i, 0)
-            if it and it.checkState() == Qt.CheckState.Checked:
-                out.append(it.text())
-        return out
+        return sorted(p for p in self.marked if p not in self.guard)
 
     def apply(self, mode: str, pkgs: list[str] | None = None) -> None:
         pkgs = pkgs if pkgs is not None else self.checked()
@@ -457,6 +561,7 @@ class DebloatPage(QWidget):
                 msg += f"\nNot installed: {', '.join(s.skipped)}"
             if s.failed:
                 msg += f"\nFailed: {', '.join(s.failed)}"
+            self.marked -= set(s.done)
             info(self, "Debloat", msg)
             self.load()
 
@@ -465,19 +570,32 @@ class DebloatPage(QWidget):
     def _restore(self, pkgs: list[str]) -> None:
         st = self.state()
         rec = st.debloat_record()
+        states = {p: s for p, s, _t in self.data}
 
         def work(_w):
             ops = self.tab.app.ops()
-            out = []
+            out, bad = [], []
             for p in pkgs:
-                mode = rec.get(p, {}).get("mode") or ("disable" if dict(self.data).get(p) == "disabled" else "remove")
+                mode = rec.get(p, {}).get("mode") or ("disable" if states.get(p) == "disabled" else "remove")
                 r = ops.restore_package(p, mode)
-                if r.ok and "Failure" not in r.text:
+                if r.ok and "Failure" not in r.text and "not installed" not in r.text.lower():
                     st.forget_debloat(p)
                     out.append(p)
-            return out
+                else:
+                    bad.append(p)
+            return out, bad
 
-        self.tab.job(work, lambda done: (info(self, "Restored", f"Restored {len(done)} package(s)."), self.load()))
+        def done(res):
+            ok, bad = res
+            self.marked -= set(ok)
+            msg = f"Restored {len(ok)} package(s)."
+            if bad:
+                msg += ("\nCould not restore: " + ", ".join(bad) + "\nA user app that was fully uninstalled "
+                        "has to be reinstalled from its store.")
+            info(self, "Restored", msg)
+            self.load()
+
+        self.tab.job(work, done)
 
     def restore_selected(self) -> None:
         pkgs = self.checked()
@@ -519,15 +637,15 @@ class DebloatPage(QWidget):
         path = pick_files(self, "Debloat list", "Text (*.txt);;All files (*)")
         if not path:
             return
+        if not self.data:
+            info(self, "Import", "Press Load packages first, then import.")
+            return
         wanted = debloat.read_list(Path(path[0]))
-        hits = 0
-        for i in range(self.table.rowCount()):
-            it = self.table.item(i, 0)
-            if it and it.text() in wanted and it.flags() & Qt.ItemFlag.ItemIsUserCheckable:
-                it.setCheckState(Qt.CheckState.Checked)
-                hits += 1
-        info(self, "Imported", f"Ticked {hits} of {len(wanted)} listed packages. Review, then Disable or Remove. "
-                               "Load packages first if the list is empty.")
+        hits = {p for p, _s, _t in self.data if p in wanted and p not in self.guard}
+        self.marked |= hits
+        self.render()
+        info(self, "Imported", f"Ticked {len(hits)} of {len(wanted)} listed packages. Review, then Disable or "
+                               "Remove.")
 
 
 class AppsTab(Tab):
@@ -547,8 +665,7 @@ class AppsTab(Tab):
 
     def on_device(self, dev) -> None:
         self.installed.table.setRowCount(0)
-        self.debloat.table.setRowCount(0)
-        self.debloat.data = []
+        self.debloat.reset()
         if dev and dev.adb_ready:
             self.installed.refresh()
 

@@ -25,6 +25,10 @@ REBOOT_TARGETS = ("system", "bootloader", "fastbootd", "recovery", "sideload")
 SHIZUKU_PKG = "moe.shizuku.privileged.api"
 PLAY_PKG = "com.android.vending"
 BOOTLOADER_ONLY = {"bootloader", "radio", "abl", "xbl", "tz"}
+# Partitions that live inside super on dynamic-partition devices. Used when a bootloader doesn't
+# answer getvar is-logical, which some don't outside fastbootd.
+KNOWN_LOGICAL = {"system", "system_ext", "product", "vendor", "odm", "vendor_dlkm", "odm_dlkm", "system_dlkm"}
+BY_NAME_DIRS = ("/dev/block/by-name", "/dev/block/bootdevice/by-name")
 
 
 class OpError(RuntimeError):
@@ -217,14 +221,20 @@ class DeviceOps:
 
     def flash(self, partition: str, image: str, slots: str = "active", disable_verity: bool = False) -> Result:
         """Flash one partition, rebooting between bootloader and fastbootd as the partition needs."""
-        extra = ["--disable-verity", "--disable-verification"] if disable_verity else []
+        # fastboot only acts on these flags for vbmeta images; keep them off every other partition.
+        extra = ["--disable-verity", "--disable-verification"] if disable_verity and \
+            partition.startswith("vbmeta") else []
         if self.planning:
             target = partition if slots != "active" else f"{partition}_<active slot>"
             args = extra + ["flash"] + (["--slot=all"] if slots == "all" else []) + [target, image]
             self.note(f"(reboots to fastbootd first if {partition} is a logical partition)")
             return self.fastboot(args, writes=True)
         mode = self.state()
-        logical = (self.getvar(f"is-logical:{partition}") or "").lower() == "yes"
+        answer = self.getvar(f"is-logical:{partition}")
+        if answer is None and mode == "bootloader" and partition in KNOWN_LOGICAL and \
+                self.getvar("super-partition-name") is not None:
+            answer = "yes"
+        logical = (answer or "").lower() == "yes"
         if logical and mode == "bootloader":
             self.status(f"{partition} is a logical partition; it is flashed from fastbootd")
             r = self.reboot("fastbootd")
@@ -331,6 +341,31 @@ class DeviceOps:
 
     def has_play(self) -> bool:
         return self.package_installed(PLAY_PKG)
+
+    def installed_variant(self, packages: list[str]) -> str:
+        """The first of these package names that is installed, or ''. Apps like Obtainium have a GitHub
+        build and an F-Droid build under different names."""
+        for p in packages:
+            if self.package_installed(p):
+                return p
+        return ""
+
+    def wait_for_package(self, package: str, timeout: float = 300, poll: float = 3) -> bool:
+        """Wait for an install the person does on the phone (a Play Store listing)."""
+        if self.planning:
+            return True
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self.package_installed(package):
+                return True
+            if self.cancel.wait(poll):
+                return False
+        return False
+
+    def launch_app(self, package: str) -> Result:
+        """Open an app's main screen on the phone."""
+        return self.shell(remote_quote("monkey", "-p", package, "-c", "android.intent.category.LAUNCHER", "1"),
+                          writes=True, timeout=30)
 
     def root_available(self) -> bool:
         if self.planning:
@@ -454,14 +489,29 @@ class DeviceOps:
 
     def read_partition_as_root(self, partition: str, slot_suffix: str, local: str) -> Result:
         remote_tmp = f"/data/local/tmp/deadboot-{partition}.img"
-        src = f"/dev/block/by-name/{partition}{slot_suffix}"
-        r = self.shell(f"su -c {remote_quote(f'dd if={src} of={remote_tmp} && chmod 644 {remote_tmp}')}",
-                       writes=False, timeout=120)
+        name = f"{partition}{slot_suffix}"
+        # /dev/block/by-name is the usual place; older Qualcomm devices only have bootdevice/by-name.
+        find = " || ".join(f"{{ [ -e {d}/{name} ] && src={d}/{name}; }}" for d in BY_NAME_DIRS)
+        script = (f"{find}; [ -n \"$src\" ] || {{ echo 'no by-name entry for {name}' >&2; exit 1; }}; "
+                  f"dd if=\"$src\" of={remote_tmp} && chmod 644 {remote_tmp}")
+        r = self.shell(f"su -c {remote_quote(script)}", writes=False, timeout=120)
         if not r.ok:
             return r
         p = self.pull(remote_tmp, local)
         self.shell(f"su -c {remote_quote(f'rm -f {remote_tmp}')}")
         return p
+
+    def partition_names(self) -> set[str] | None:
+        """Partition names from /dev/block/by-name over adb, or None when the shell user can't list it."""
+        if self.planning:
+            return None
+        for d in BY_NAME_DIRS:
+            out = self.qshell(f"ls {d} 2>/dev/null")
+            names = {ln.strip() for ln in out.split() if ln.strip()}
+            # A readable listing always has some boot partition; anything else means it wasn't readable.
+            if any(n.startswith("boot") for n in names):
+                return names
+        return None
 
     def list_download_dir(self) -> list[str]:
         return [ln.strip() for ln in self.qshell("ls -1 /sdcard/Download/").splitlines() if ln.strip()]
@@ -486,7 +536,8 @@ def extract_zip_to(zip_path: Path, dest: Path) -> Path:
     with zipfile.ZipFile(zip_path) as zf:
         root = dest.resolve()
         for info in zf.infolist():
-            if not str((dest / info.filename).resolve()).startswith(str(root)):
+            out = (dest / info.filename).resolve()
+            if out != root and not out.is_relative_to(root):
                 raise OpError(f"unsafe path in zip: {info.filename}")
         zf.extractall(dest)
     return dest

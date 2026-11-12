@@ -1,0 +1,105 @@
+# deADBoot common bloat list.
+#
+# "Mark common bloat" in Apps, Debloat ticks every loaded package that matches this list.
+# It never removes or disables anything by itself: you review the ticks, untick what you use,
+# tick anything else you want gone, then press Disable or Remove yourself.
+#
+# Format:
+#   ## Group name          the group shown in the Note column for the lines under it
+#   com.example.app        one exact package name
+#   com.example.*          every package starting with "com.example."
+#
+# The do-not-touch list (debloat-protected.txt) always wins over this one.
+# Add your own entries in ~/.local/share/deadboot/debloat-common.txt
+# (Windows: %LOCALAPPDATA%\deADBoot\debloat-common.txt). They are merged with these.
+
+## Facebook / Meta preload
+com.facebook.*
+com.instagram.android
+
+## Amazon preload
+com.amazon.*
+in.amazon.mShop.android.shopping
+com.audible.application
+
+## TikTok / ByteDance preload
+com.zhiliaoapp.*
+com.ss.android.ugc.*
+com.lemon.lvoverseas
+
+## Streaming preload
+com.netflix.*
+com.spotify.music
+com.disney.disneyplus
+com.hulu.plus
+
+## Microsoft / LinkedIn preload
+com.microsoft.skydrive
+com.microsoft.office.officehubrow
+com.linkedin.android
+
+## Shopping, travel and game preload
+com.ebay.mobile
+com.booking
+com.king.*
+flipboard.app
+flipboard.boxer.app
+com.opera.preinstall
+
+## Silent app installer (pushes more apps)
+com.dti.*
+com.aura.*
+com.ironsource.*
+com.LogiaGroup.LogiaDeck
+com.sprint.w.installer
+
+## Verizon extra
+com.vzw.hss.myverizon
+com.verizon.messaging.vzmsgs
+com.vcast.mediamanager
+com.vzw.ecid
+com.asurion.android.verizon.vms
+com.securityandprivacy.android.verizon.vms
+com.vzw.hs.android.modlite
+
+## AT&T extra
+com.att.myWireless
+com.att.callprotect
+com.att.mobilesecurity
+com.att.dh
+com.att.tv
+com.att.android.attsmartwifi
+com.att.iqi
+com.synchronoss.dcs.att.r2g
+
+## T-Mobile / Metro extra
+com.tmobile.pr.mytmobile
+com.tmobile.pr.adapt
+com.tmobile.services.nameid
+com.tmobile.tuesdays
+com.tmobile.echolocate
+com.mobitv.*
+com.metropcs.metrozone
+
+## Sprint extra
+com.sprint.zone
+com.sprint.care
+
+## Samsung extra
+com.samsung.android.app.spage
+com.samsung.android.bixby.agent
+com.samsung.android.bixby.wakeup
+com.samsung.android.game.gamehome
+com.samsung.android.arzone
+com.samsung.android.ardrawing
+com.samsung.android.tvplus
+com.samsung.android.app.tips
+com.samsung.android.kidsinstaller
+com.sec.android.app.kidshome
+com.samsung.android.voc
+com.samsung.android.service.peoplestripe
+
+## Xiaomi ads and analytics
+com.miui.analytics
+com.miui.msa.global
+com.xiaomi.mipicks

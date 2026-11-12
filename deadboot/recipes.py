@@ -401,11 +401,10 @@ def shizuku_setup(ctx: Context, client: str, iwo: bool, root: str) -> tuple[bool
     elif not ops.package_installed(SHIZUKU_PKG):
         if ops.has_play():
             ops.open_play_listing(SHIZUKU_PKG)
-            if ctx.callbacks and not ctx.callbacks.wait("Tap Install on the Shizuku Play listing on the phone, then "
-                                                        "click Continue.", None):
-                return False, "stopped while waiting for the Play install"
-            if not ops.package_installed(SHIZUKU_PKG):
-                return False, "Shizuku is still not installed"
+            ctx.log("# Shizuku's Play listing is open on the phone. Tap Install there; this step continues by "
+                    "itself once it is installed (up to five minutes).")
+            if not ops.wait_for_package(SHIZUKU_PKG, timeout=300):
+                return False, "Shizuku was not installed from the Play listing within five minutes"
         else:
             fetched = downloads.fetch_source("shizuku", hostplatform.cache_dir() / "apks", hostplatform.cache_dir())
             ctx.log(f"# Shizuku {fetched.version}: {fetched.detail}")
@@ -414,12 +413,14 @@ def shizuku_setup(ctx: Context, client: str, iwo: bool, root: str) -> tuple[bool
                 return ok, msg
     srcs = load_named_sources()
     for key in [client] + (["installwithoptions"] if iwo else []):
-        pkg = srcs.get(key, {}).get("package", "")
+        names = downloads.package_names(srcs.get(key, {}))
         if ops.planning:
             ops.note(f"Install {key} if it is not installed")
             ops.install([f"<{key} APK>"], reinstall=True)
             continue
-        if pkg and ops.package_installed(pkg):
+        have = ops.installed_variant(names)
+        if have:
+            ctx.log(f"# {key} is already installed ({have})")
             continue
         fetched = downloads.fetch_source(key, hostplatform.cache_dir() / "apks", hostplatform.cache_dir(), ops.abi())
         ctx.log(f"# {key} {fetched.version}: {fetched.detail}")
@@ -429,8 +430,8 @@ def shizuku_setup(ctx: Context, client: str, iwo: bool, root: str) -> tuple[bool
     use_root = ops.root_available() if root == "auto" else bool(root is True or root == "yes")
     r = ops.shizuku_start(root=use_root)
     ok, msg = _ok(r)
-    ops.note(f"On the phone: in {client}'s settings set the installer to Shizuku, then tap Allow on the Shizuku "
-             "permission prompt.")
+    from .shizukuguide import connect_steps
+    ops.note("On the phone: " + connect_steps(client))
     if not use_root:
         ops.note("Shizuku stops on reboot without root. Restart it from the cable, or from Shizuku's own app over "
                  "Wireless Debugging (Android 11+).")

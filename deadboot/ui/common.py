@@ -69,6 +69,27 @@ def pick_dir(parent, title: str) -> str:
     return QFileDialog.getExistingDirectory(parent, title, str(Path.home()))
 
 
+def para(text: str, selectable: bool = False) -> QLabel:
+    """A label for a sentence or more of help text. Always word-wrapped.
+
+    An unwrapped QLabel's minimum width is its whole text on one line, which is how one long help line
+    used to force the main window across several monitors.
+    """
+    lab = QLabel(text)
+    lab.setWordWrap(True)
+    if selectable:
+        from PyQt6.QtCore import Qt
+        lab.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+    return lab
+
+
+def wrap_long_labels(root: QWidget, limit: int = 60) -> None:
+    """Safety net: word-wrap any label whose text is long enough to widen the window."""
+    for lab in root.findChildren(QLabel):
+        if not lab.wordWrap() and len(lab.text()) > limit:
+            lab.setWordWrap(True)
+
+
 def device_line(dev) -> str:
     return f"{dev.confirm_name}  (serial {dev.serial})"
 

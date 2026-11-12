@@ -272,8 +272,8 @@ class FlashTab(Tab):
             row.addWidget(w)
         lay.addLayout(row)
         # loose images
-        lay.addWidget(QLabel("Loose images: map each image to a partition (drag rows to reorder is not needed; "
-                             "they flash top to bottom)."))
+        lay.addWidget(label("Loose images: map each image to a partition. They flash top to bottom. Disable "
+                            "verity only applies to vbmeta images and is ignored for anything else."))
         self.map_table = QTableWidget(0, 4)
         self.map_table.setHorizontalHeaderLabels(["Image", "Partition", "Both slots", "Disable verity (vbmeta)"])
         self.map_table.horizontalHeader().setStretchLastSection(True)
@@ -291,6 +291,9 @@ class FlashTab(Tab):
         self.sideload_btn.clicked.connect(self.sideload_rom)
         self.addons_btn.clicked.connect(self.sideload_addons)
         self.flash_map_btn.clicked.connect(self.flash_mapped)
+        # Nothing to run until a package is chosen; render_package shows the buttons that fit it.
+        for w in (self.flashall_btn, self.keep_data, self.update_btn, self.update_wipe, self.sideload_btn):
+            w.setVisible(False)
         self.body.addWidget(box)
 
     def build_bootloader(self) -> None:
@@ -363,7 +366,9 @@ class FlashTab(Tab):
         lay.addLayout(row)
         row = QHBoxLayout()
         self.r1 = self.gate(QPushButton("&1 Read build"), {"device"})
-        self.r2 = self.gate(QPushButton("&2 Pick partition (reboots to bootloader and back)"), {"device"})
+        self.r2 = self.gate(QPushButton("&2 Pick partition"), {"device"})
+        self.r2.setToolTip("Reads the partition list over adb. If the phone doesn't allow that, it reboots to the "
+                           "bootloader to ask, then back to system.")
         self.r3 = self.gate(QPushButton("&3 Get stock image"), {"device"})
         self.r4 = self.gate(QPushButton("&4 Install Magisk + push image"), {"device"})
         for w in (self.r1, self.r2, self.r3, self.r4):
@@ -611,6 +616,7 @@ class FlashTab(Tab):
             if sig.is_file():
                 self.sig_edit.setText(str(sig))
             self.render_package()
+            self.fill_map_table()
 
         self.job(lambda _w: packages.detect(path), done)
 
@@ -649,8 +655,13 @@ class FlashTab(Tab):
         self.update_btn.setVisible(kind == packages.FASTBOOT_UPDATE)
         self.update_wipe.setVisible(kind == packages.FASTBOOT_UPDATE)
         self.sideload_btn.setVisible(kind in (packages.RECOVERY_ZIP, packages.OTA_PAYLOAD))
+
+    def fill_map_table(self) -> None:
+        """Only when a new package is loaded. render_package runs on every device refresh (each reboot,
+        each Read state), and rebuilding the table there threw away the partitions the person had mapped."""
         self.map_table.setRowCount(0)
-        if kind in (packages.LOOSE_IMAGES, packages.UNKNOWN, packages.FASTBOOT_UPDATE):
+        pk = self.pkg
+        if pk and pk.kind in (packages.LOOSE_IMAGES, packages.UNKNOWN, packages.FASTBOOT_UPDATE):
             for img in pk.images:
                 self.add_map_row(img)
 
@@ -769,6 +780,7 @@ class FlashTab(Tab):
 
         def fn(o):
             src = pk.path
+            dest = None
             if src.is_dir():
                 d = find_script_dir(src)
             else:
@@ -776,13 +788,24 @@ class FlashTab(Tab):
                 o.status(f"Extracting {src.name}")
                 extract_zip_to(src, dest)
                 d = find_script_dir(dest)
-            if not d:
-                raise RuntimeError(f"No {hostplatform.flash_all_script_name()} found in the package")
-            return o.flash_all(str(d), keep)
+            try:
+                if not d:
+                    raise RuntimeError(f"No {hostplatform.flash_all_script_name()} found in the package")
+                return o.flash_all(str(d), keep)
+            finally:
+                if dest is not None:
+                    # A factory image unpacks to several GB; the original zip is still there for a retry.
+                    shutil.rmtree(dest, ignore_errors=True)
 
         self.run_ops(fn, "flash-all finished. Check the log for the script's own output.", self.record_rom)
 
     def run_update(self) -> None:
+        if self.pkg is None or self.pkg.kind != packages.FASTBOOT_UPDATE:
+            return
+        if self.pkg.path.is_dir():
+            warn(self, "fastboot update", "fastboot update takes a zip, not a folder. Use the loose image table "
+                                          "below to flash the folder's images one by one.")
+            return
         wipe = self.update_wipe.isChecked()
         path = str(self.pkg.path)
         if not self.guard(f"fastboot update {self.pkg.path.name}", self.plan_text(lambda o: o.fastboot_update(path, wipe)),
@@ -811,11 +834,18 @@ class FlashTab(Tab):
                                  "The phone did not reach sideload mode."))
 
     def sideload_rom(self) -> None:
+        if self.pkg is None:
+            return
         path = str(self.pkg.path)
         if not self.guard(f"Sideload {self.pkg.path.name}", f"adb sideload {path}", need_package=True,
                           wipes=False):
             return
-        self.run_ops(lambda o: o.sideload(path), "Sideload finished.", self.record_rom)
+        done = "Sideload finished."
+        if self.dev and (self.dev.slot or self.dev.fastboot_vars.get("current-slot")):
+            done += ("\n\nThis is an A/B device: the ROM went onto the other slot. Before sideloading add-ons, "
+                     "choose Advanced, Reboot to recovery on the phone, so the add-ons land on the new slot. "
+                     "Then Apply update, Apply from ADB.")
+        self.run_ops(lambda o: o.sideload(path), done, self.record_rom)
 
     def add_addon(self) -> None:
         p = pick_file(self, "Add-on zip", "Zip (*.zip)")
@@ -827,7 +857,9 @@ class FlashTab(Tab):
         if not zips:
             return
         if not self.guard("Sideload add-ons in this order:\n" + "\n".join(Path(z).name for z in zips),
-                          "Between add-ons the phone has to be back in Apply from ADB."):
+                          "Between add-ons the phone has to be back in Apply from ADB.\n"
+                          "A/B devices: if you just sideloaded the ROM, reboot to recovery first (Advanced, "
+                          "Reboot to recovery) so the add-ons go onto the newly installed slot."):
             return
 
         def fn(o):
@@ -967,14 +999,20 @@ class FlashTab(Tab):
 
         def work(w):
             o = self.app.ops(w)
-            r = o.reboot("bootloader")
-            if not r.ok:
-                raise RuntimeError(r.err or "could not reach the bootloader")
-            var = o.getvar("has-slot:init_boot")
-            if var is None:
-                # Non-A/B devices: probe the partition itself.
-                var = "yes" if o.getvar("partition-size:init_boot") else "no"
-            o.reboot("system")
+            names = o.partition_names()
+            if names is not None:
+                # The partition list was readable over adb: no trip to the bootloader needed.
+                var = "yes" if any(n.startswith("init_boot") for n in names) else "no"
+                o.status("Read the partition list over adb: init_boot " + ("present" if var == "yes" else "absent"))
+            else:
+                r = o.reboot("bootloader")
+                if not r.ok:
+                    raise RuntimeError(r.err or "could not reach the bootloader")
+                var = o.getvar("has-slot:init_boot")
+                if var is None:
+                    # Non-A/B devices: probe the partition itself.
+                    var = "yes" if o.getvar("partition-size:init_boot") else "no"
+                o.reboot("system")
             pk = packages.detect(Path(pkg_path)) if pkg_path else None
             has = pk.has_init_boot if pk and pk.kind == packages.FACTORY else None
             return magisk.choose_partition(var, has)
@@ -1180,9 +1218,11 @@ class FlashTab(Tab):
 
     def heimdall_flash(self) -> None:
         part = self.h_part.text().strip()
+        if not part:
+            info(self, "heimdall", "Enter the PIT partition name first (Print PIT lists them).")
+            return
         img = pick_file(self, f"File for {part}", "Images (*.img *.bin);;All files (*)")
-        if not part or not img:
-            info(self, "heimdall", "Enter the PIT partition name and pick the file.")
+        if not img:
             return
         dev = self.dev or _SamsungDummy()
         if not typed_confirm(self, dev, f"heimdall flash --{part} {Path(img).name}",

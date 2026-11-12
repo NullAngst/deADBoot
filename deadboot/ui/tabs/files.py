@@ -102,9 +102,11 @@ class FilesTab(Tab):
             row2.addWidget(w)
         row2.addStretch(1)
         lay.addLayout(row2)
-        lay.addWidget(QLabel("adb pull does not resume a partial file. If the cable drops, finished files stay "
-                             "finished, the interrupted one restarts, and files already on disk at the same size "
-                             "are skipped on retry. You can also drop files on the window to push them here."))
+        note = QLabel("adb pull does not resume a partial file. If the cable drops, finished files stay "
+                      "finished, the interrupted one restarts, and files already on disk at the same size "
+                      "are skipped on retry. You can also drop files on the window to push them here.")
+        note.setWordWrap(True)
+        lay.addWidget(note)
 
         self.up_btn.clicked.connect(self.go_up)
         self.go_btn.clicked.connect(lambda: self.list_dir(self.path_edit.text().strip() or "/"))

@@ -3,6 +3,10 @@
 #   abi_assets = true means the project ships per-ABI APKs; the device's ABI is preferred,
 #   then a universal APK.
 # kind = "fdroid": the package from the official F-Droid repo index, which carries a SHA-256.
+# asset_exclude: assets matching this are never picked (Obtainium ships F-Droid-flavor APKs with a
+#   different package name in the same release).
+# alt_packages: other package names the same app installs under (its F-Droid or Play build). An app
+#   counts as installed if any of them is, so deADBoot never installs a second copy next to it.
 
 [shizuku]
 label = "Shizuku"
@@ -21,10 +25,12 @@ kind = "fdroid"
 [obtainium]
 label = "Obtainium"
 package = "dev.imranr.obtainium"
+alt_packages = ["dev.imranr.obtainium.fdroid"]
 kind = "github"
 owner = "ImranR98"
 repo = "Obtainium"
 asset_regex = '(?i)\.apk$'
+asset_exclude = '(?i)fdroid'
 abi_assets = true
 
 [installwithoptions]

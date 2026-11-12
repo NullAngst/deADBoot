@@ -2,4 +2,4 @@
 
 APP_NAME = "deADBoot"
 APP_ID = "deadboot"
-__version__ = "2026.11.11"
+__version__ = "2026.11.12"

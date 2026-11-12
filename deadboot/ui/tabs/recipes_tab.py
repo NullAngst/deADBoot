@@ -386,8 +386,13 @@ class RecipesTab(Tab):
         self.dup_btn = QPushButton("&Duplicate")
         self.folder_btn = QPushButton("Open &folder")
         self.reload_btn = QPushButton("Re&load")
-        for w in (self.run_btn, self.plan_btn, self.resume_btn, self.abandon_btn, self.stop_btn, self.new_btn,
-                  self.edit_btn, self.text_btn, self.dup_btn, self.folder_btn, self.reload_btn):
+        # Two rows: running a recipe, then editing recipes. One row of eleven buttons made the window too wide.
+        for w in (self.run_btn, self.plan_btn, self.resume_btn, self.abandon_btn, self.stop_btn):
+            row.addWidget(w)
+        row.addStretch(1)
+        lay.addLayout(row)
+        row = QHBoxLayout()
+        for w in (self.new_btn, self.edit_btn, self.text_btn, self.dup_btn, self.folder_btn, self.reload_btn):
             row.addWidget(w)
         row.addStretch(1)
         lay.addLayout(row)

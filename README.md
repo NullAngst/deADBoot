@@ -72,9 +72,9 @@ The **device panel** on the left lists everything adb and fastboot see, with mod
 
 **1 Files.** Browse the phone, pull or push with a queue, drop files on the window to push them. Rescue pulls grab all of `/sdcard` or just DCIM and Pictures. `adb pull` can't resume a half-copied file, so the queue works per file: finished files stay finished, the interrupted one restarts, and anything already on disk at the same size is skipped on retry. Preserve timestamps keeps photo dates. On Windows, names Windows refuses are rewritten and listed in `renamed-files.txt`.
 
-**2 Apps.** Installed apps (filter, uninstall with or without data, enable, disable, pull every split APK). Install takes APKs, split sets and `.apks`/`.xapk` bundles, with reinstall, downgrade, grant-all and the Android 14+ low-target-SDK bypass. Failures come back as a plain sentence, and deADBoot offers the fix when there is one (the bypass for old apps, downgrade, or uninstall-then-install on a signature mismatch). Quick installs fetch the current Shizuku, Droid-ify, Obtainium, Install With Options or Magisk. **Debloat** disables or removes bloat for user 0, both reversible without a factory reset. The do-not-touch list (`data/debloat-protected.txt`, plus your launcher and keyboard at runtime) can't be selected. Every change is recorded per device, so Restore, Re-apply after an OTA and Export to a list file all work.
+**2 Apps.** Installed apps (filter, uninstall with or without data, enable, disable, pull every split APK). Install takes APKs, split sets and `.apks`/`.xapk` bundles, with reinstall, downgrade, grant-all and the Android 14+ low-target-SDK bypass. Failures come back as a plain sentence, and deADBoot offers the fix when there is one (the bypass for old apps, downgrade, or uninstall-then-install on a signature mismatch). Quick installs fetch the current Shizuku, Droid-ify, Obtainium, Install With Options or Magisk. **Debloat** disables or removes bloat for user 0, both reversible without a factory reset. The do-not-touch list (`data/debloat-protected.txt`, plus your launcher and keyboard at runtime) can't be ticked. Press Load packages, then **Mark common bloat** to tick everything on the common bloat list (`data/debloat-common.txt`: Facebook, Amazon, TikTok, Netflix, carrier extras from Verizon, AT&T and T-Mobile, silent app installers like Digital Turbine and ironSource Aura, a few Samsung and Xiaomi extras). It only ticks. Ticked rows sort to the top with their group in the Note column, so you scroll through, untick what you use, tick anything else, then press Disable ticked or Remove ticked yourself. Ticks survive the vendor filter and search. Every change is recorded per device, so Restore, Re-apply after an OTA and Export to a list file all work.
 
-**3 F-Droid Setup.** Gets Shizuku on the phone (Play listing when Play is there, GitHub release otherwise), installs Droid-ify or Obtainium, and starts Shizuku with its own starter found from the installed package. Then you do two things on the phone: set the client's installer to Shizuku, and tap Allow. After that the phone updates its own apps without the cable. Without root, Shizuku stops at reboot; restart it over the cable or from Shizuku's app via Wireless debugging. On a rooted phone, root mode is offered and survives reboots.
+**3 F-Droid Setup.** Sets up Shizuku and an app store client so the phone installs and updates apps by itself. The tab walks through it in order; the full steps are in [Setting up Shizuku and an F-Droid client](#setting-up-shizuku-and-an-f-droid-client) below.
 
 **4 Backup.** The `adb backup` builder, `.ab` extraction (built in for unencrypted backups, `abe` for encrypted ones) and the rescue sets. `adb backup` is deprecated and backs up almost nothing on Android 12+, but it still works on the old phones it's useful for.
 
@@ -83,6 +83,37 @@ The **device panel** on the left lists everything adb and fastboot see, with mod
 **6 Recipes.** Saved step lists. Covered below.
 
 **7 Diagnostics.** Live logcat with level, tag and package filters, pause and save. Searchable getprop. `fastboot getvar all`. Battery and storage. A bug report bundle.
+
+## Setting up Shizuku and an F-Droid client
+
+Shizuku is a helper app that lets other apps do what adb can, like installing without a confirmation prompt each time. Droid-ify (F-Droid apps) or Obtainium (apps from GitHub, GitLab and Codeberg releases) then uses it to install and update apps on the phone, no computer needed.
+
+You do not need Wireless debugging or pairing to set this up. Shizuku's service has to be started by adb, and deADBoot does that over the USB cable. Wireless debugging is only for restarting Shizuku after a reboot when you're away from the computer.
+
+Prerequisites: the phone connected with USB debugging allowed (see [On the phone](#on-the-phone)).
+
+1. Open the F-Droid Setup tab and pick the client: Droid-ify or Obtainium.
+2. Press 1. Get Shizuku. With the Play Store on the phone, Shizuku's Play listing opens there: tap Install, and deADBoot carries on by itself once it sees it installed. Without Play, deADBoot installs the latest GitHub release.
+3. Press 2. Install the client. If the client is already on the phone, as either its GitHub build or its F-Droid build, it's left alone.
+4. Press 3. Start Shizuku. Then press Open Shizuku on the phone: the top card should say Shizuku is running. Ignore Shizuku's own Start via Wireless debugging and Pairing buttons, since those are the cable-free way of doing this same step.
+5. Press Open the client on the phone, then point it at Shizuku:
+   - Droid-ify: Settings, Installer, choose Shizuku.
+   - Obtainium: Settings, turn on "Use Shizuku or Sui to install".
+6. The client asks to access Shizuku. Tap Allow. Apps only show up in Shizuku's authorized list after they ask, so an empty list before this step is normal. You never add apps from inside Shizuku.
+7. Install apps. In Droid-ify, search and tap Install. In Obtainium, tap Add App, paste the app's project page (for example `https://github.com/owner/app`), tap Add, then Install. With Shizuku there's no "Do you want to install this app?" prompt, for installs or updates.
+
+Check status shows what's installed (and which build), whether Shizuku is running, and whether Play is present.
+
+Without root, Shizuku stops at every reboot. The client still browses, but installs fail until Shizuku runs again. Plug in and press 3. Start Shizuku, or set up the cable-free restart once (Android 11+):
+
+1. Put the phone on a Wi-Fi network you trust.
+2. Developer options, turn on Wireless debugging.
+3. In Shizuku, tap Pairing under Start via Wireless debugging. Allow its notifications if asked.
+4. In Developer options, Wireless debugging, tap Pair device with pairing code.
+5. Type the 6-digit code into Shizuku's notification.
+6. In Shizuku, tap Start.
+
+After that, each reboot is: Wireless debugging on (Android turns it off when Wi-Fi drops), open Shizuku, tap Start. On a rooted phone, pick Root mode in the tab instead, and Shizuku starts itself at boot.
 
 ## Flashing and installing ROMs
 
@@ -163,6 +194,7 @@ text = "Anything after"
 
 - Settings: `~/.config/deadboot/settings.toml` (Windows: `%APPDATA%\deADBoot\settings.toml`)
 - Data, fetched tools, cached APKs, boot images, recipes: `~/.local/share/deadboot/` (Windows: `%LOCALAPPDATA%\deADBoot\`)
+- Your own debloat lists: `debloat-protected.txt` (more do-not-touch packages) and `debloat-common.txt` (more packages for Mark common bloat) in the data folder. Same format as the shipped files in `data/`, merged with them.
 - Action log: `logs/` in the data folder, one file per day, every device command with time and serial, kept 30 days.
 
 No telemetry. The only network calls are downloads you trigger (platform-tools, scrcpy on Windows, APKs from F-Droid and GitHub) and the tool update check.

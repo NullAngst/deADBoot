@@ -130,6 +130,11 @@ def load_sources() -> dict[str, dict]:
         return tomllib.load(fh)
 
 
+def package_names(src: dict) -> list[str]:
+    """Every package name an app can be installed under: the main one first, then its other builds."""
+    return [n for n in [src.get("package", "")] + list(src.get("alt_packages", [])) if n]
+
+
 def github_latest(owner: str, repo: str) -> dict:
     data = get_json(f"https://api.github.com/repos/{owner}/{repo}/releases/latest")
     if not isinstance(data, dict) or "assets" not in data:
@@ -137,9 +142,11 @@ def github_latest(owner: str, repo: str) -> dict:
     return data
 
 
-def pick_asset(assets: list[dict], regex: str, abi: str | None = None, abi_assets: bool = False) -> dict | None:
+def pick_asset(assets: list[dict], regex: str, abi: str | None = None, abi_assets: bool = False,
+               exclude: str | None = None) -> dict | None:
     pattern = re.compile(regex)
-    apks = [a for a in assets if pattern.search(a.get("name", ""))]
+    skip = re.compile(exclude) if exclude else None
+    apks = [a for a in assets if pattern.search(a.get("name", "")) and not (skip and skip.search(a.get("name", "")))]
     if not apks:
         return None
     if abi_assets:
@@ -174,7 +181,8 @@ def _project_checksum(assets: list[dict], asset_name: str) -> str | None:
 
 def fetch_github_apk(src: dict, dest_dir: Path, abi: str | None, progress: Progress | None = None) -> Fetched:
     rel = github_latest(src["owner"], src["repo"])
-    asset = pick_asset(rel["assets"], src.get("asset_regex", r"\.apk$"), abi, bool(src.get("abi_assets")))
+    asset = pick_asset(rel["assets"], src.get("asset_regex", r"\.apk$"), abi, bool(src.get("abi_assets")),
+                       src.get("asset_exclude"))
     if asset is None:
         raise DownloadError(f"no APK asset found in {src['owner']}/{src['repo']} {rel.get('tag_name')}")
     expected = _project_checksum(rel["assets"], asset["name"])
@@ -231,9 +239,10 @@ def _extract_zip(zip_path: Path, target: Path, strip_top: bool = True) -> None:
         shutil.rmtree(target)
     with tempfile.TemporaryDirectory(dir=str(target.parent), ignore_cleanup_errors=True) as tmp:
         with zipfile.ZipFile(zip_path) as zf:
+            root = Path(tmp).resolve()
             for info in zf.infolist():
                 out = (Path(tmp) / info.filename).resolve()
-                if not str(out).startswith(str(Path(tmp).resolve())):
+                if out != root and not out.is_relative_to(root):
                     raise DownloadError(f"unsafe path in zip: {info.filename}")
             zf.extractall(tmp)
             if not hostplatform.IS_WINDOWS:

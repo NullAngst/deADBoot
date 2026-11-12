@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import hostplatform
@@ -35,6 +36,53 @@ def load_protected(extra: Path | None = None) -> set[str]:
     for f in files:
         if f.is_file():
             out |= read_list(f)
+    return out
+
+
+@dataclass
+class CommonBloat:
+    """The common-bloat list: exact package names and vendor-family prefixes, each with a group name."""
+
+    exact: dict[str, str] = field(default_factory=dict)
+    prefixes: list[tuple[str, str]] = field(default_factory=list)
+
+    def group(self, package: str) -> str:
+        """The group a package belongs to, or '' when it is not on the list."""
+        if package in self.exact:
+            return self.exact[package]
+        for prefix, group in self.prefixes:
+            if package.startswith(prefix):
+                return group
+        return ""
+
+    def __len__(self) -> int:
+        return len(self.exact) + len(self.prefixes)
+
+
+def parse_common(text: str, into: CommonBloat | None = None) -> CommonBloat:
+    out = into if into is not None else CommonBloat()
+    group = "common bloat"
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("##"):
+            group = line.lstrip("#").strip() or "common bloat"
+            continue
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        if line.endswith(".*"):
+            out.prefixes.append((line[:-1], group))      # keep the trailing dot: com.facebook.
+        else:
+            out.exact[line] = group
+    return out
+
+
+def load_common() -> CommonBloat:
+    """The shipped common-bloat list plus the user's own additions."""
+    out = CommonBloat()
+    for f in (hostplatform.data_resource("debloat-common.txt"), hostplatform.data_dir() / "debloat-common.txt"):
+        if f.is_file():
+            parse_common(f.read_text(encoding="utf-8", errors="replace"), out)
     return out
 
 

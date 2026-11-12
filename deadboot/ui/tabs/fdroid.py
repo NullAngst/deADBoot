@@ -2,29 +2,12 @@
 
 from __future__ import annotations
 
-from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QGroupBox, QHBoxLayout, QLabel, QPushButton, QRadioButton,
-                             QVBoxLayout)
+from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QGridLayout, QGroupBox, QHBoxLayout,
+                             QPushButton, QRadioButton, QScrollArea, QVBoxLayout, QWidget)
 
-from ... import downloads, hostplatform
+from ... import downloads, hostplatform, shizukuguide as guide
 from ...ops import SHIZUKU_PKG
-from ..common import Tab, confirm_device, info, warn
-
-CAVEATS = (
-    "<b>Before you start</b><ul>"
-    "<li>Shizuku's service stops on reboot unless the device is rooted. Without root, re-run Start Shizuku over "
-    "the cable, or restart it from Shizuku's own app over Wireless Debugging, after each reboot.</li>"
-    "<li>Wireless Debugging needs Android 11 or newer. Older phones can run Shizuku over the cable; they just "
-    "don't get the cable-free restart.</li>"
-    "<li>On a rooted phone Shizuku can run in root mode, which survives reboots.</li></ul>")
-
-WIRELESS = (
-    "<b>Cable-free restarts (Android 11+)</b><ol>"
-    "<li>Connect the phone to a Wi-Fi network you trust.</li>"
-    "<li>Settings, System, Developer options, turn on Wireless debugging.</li>"
-    "<li>Open Shizuku, choose Start via Wireless debugging, then Pairing. Shizuku shows a notification.</li>"
-    "<li>In Developer options, Wireless debugging, Pair device with pairing code. Enter the code in "
-    "Shizuku's notification.</li>"
-    "<li>Back in Shizuku, tap Start. After a reboot you repeat only this last step, on the phone.</li></ol>")
+from ..common import Tab, confirm_device, info, para, warn
 
 
 class FdroidTab(Tab):
@@ -32,17 +15,26 @@ class FdroidTab(Tab):
 
     def __init__(self, app, parent=None):
         super().__init__(app, parent)
-        lay = QVBoxLayout(self)
-        caveats = QLabel(CAVEATS)
-        caveats.setWordWrap(True)
-        lay.addWidget(caveats)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        body = QWidget()
+        lay = QVBoxLayout(body)
+        scroll.setWidget(body)
+        outer.addWidget(scroll)
+
+        lay.addWidget(para(guide.INTRO))
 
         box = QGroupBox("Client")
         bl = QHBoxLayout(box)
-        self.droidify = QRadioButton("&Droid-ify")
+        self.droidify = QRadioButton("&Droid-ify (F-Droid apps)")
         self.droidify.setChecked(True)
-        self.obtainium = QRadioButton("&Obtainium")
+        self.obtainium = QRadioButton("&Obtainium (GitHub and other release pages)")
         self.iwo = QCheckBox("Also install Install &With Options")
+        self.iwo.setToolTip("An on-device APK installer that also uses Shizuku, for APK files you download "
+                            "yourself.")
         self.client_group = QButtonGroup(self)
         self.client_group.addButton(self.droidify)
         self.client_group.addButton(self.obtainium)
@@ -53,8 +45,8 @@ class FdroidTab(Tab):
 
         mbox = QGroupBox("Shizuku mode")
         ml = QHBoxLayout(mbox)
-        self.usb_mode = QRadioButton("&USB / Wireless Debugging (no root)")
-        self.root_mode = QRadioButton("&Root mode (survives reboots)")
+        self.usb_mode = QRadioButton("&USB cable (no root)")
+        self.root_mode = QRadioButton("&Root mode (starts itself at boot)")
         self.mode_group = QButtonGroup(self)
         self.mode_group.addButton(self.usb_mode)
         self.mode_group.addButton(self.root_mode)
@@ -66,28 +58,33 @@ class FdroidTab(Tab):
         ml.addStretch(1)
         lay.addWidget(mbox)
 
-        steps = QHBoxLayout()
+        sbox = QGroupBox("Steps 1 to 3 (deADBoot does these over the cable)")
+        grid = QGridLayout(sbox)
+        grid.setColumnStretch(1, 1)
         self.get_shizuku = self.gate(QPushButton("&1. Get Shizuku"), {"device"})
         self.get_client = self.gate(QPushButton("&2. Install the client"), {"device"})
         self.start_btn = self.gate(QPushButton("&3. Start Shizuku"), {"device"})
         self.status_btn = self.gate(QPushButton("Check &status"), {"device"})
-        for w in (self.get_shizuku, self.get_client, self.start_btn, self.status_btn):
-            steps.addWidget(w)
-        steps.addStretch(1)
-        lay.addLayout(steps)
+        for row, (btn, key) in enumerate(((self.get_shizuku, "shizuku"), (self.get_client, "client"),
+                                          (self.start_btn, "start"), (self.status_btn, "status"))):
+            grid.addWidget(btn, row, 0)
+            grid.addWidget(para(guide.STEP_HELP[key]), row, 1)
+        lay.addWidget(sbox)
 
-        self.status = QLabel("")
-        self.status.setWordWrap(True)
+        self.status = para("", selectable=True)
+        self.status.setObjectName("fdroidstatus")
         lay.addWidget(self.status)
-        todo = QLabel("<b>4. On the phone</b>, which deADBoot can't do for you: in the client's settings set the "
-                      "installer to Shizuku, then tap Allow on the Shizuku permission prompt the client raises. "
-                      "That's the end of setup. If permission isn't granted, the client says so the first time it "
-                      "installs something.")
-        todo.setWordWrap(True)
-        lay.addWidget(todo)
-        wl = QLabel(WIRELESS)
-        wl.setWordWrap(True)
-        lay.addWidget(wl)
+
+        open_row = QHBoxLayout()
+        self.open_shizuku = self.gate(QPushButton("Open Shi&zuku on the phone"), {"device"})
+        self.open_client = self.gate(QPushButton("Open the c&lient on the phone"), {"device"})
+        open_row.addWidget(self.open_shizuku)
+        open_row.addWidget(self.open_client)
+        open_row.addStretch(1)
+        lay.addLayout(open_row)
+
+        for text in (guide.CONNECT, guide.USING, guide.REBOOTS, guide.WIRELESS):
+            lay.addWidget(para(text))
         lay.addStretch(1)
 
         self.get_shizuku.clicked.connect(self.install_shizuku)
@@ -95,9 +92,20 @@ class FdroidTab(Tab):
         self.start_btn.clicked.connect(self.start_shizuku)
         self.status_btn.clicked.connect(self.check_status)
         self.check_root_btn.clicked.connect(self.check_root)
+        self.open_shizuku.clicked.connect(lambda: self.open_app([SHIZUKU_PKG], "Shizuku"))
+        self.open_client.clicked.connect(self.open_client_app)
+
+    # ------------------------------------------------------------ helpers
 
     def client(self) -> str:
         return "obtainium" if self.obtainium.isChecked() else "droidify"
+
+    def client_label(self) -> str:
+        return guide.CLIENT_LABELS[self.client()]
+
+    @staticmethod
+    def names(key: str) -> list[str]:
+        return downloads.package_names(downloads.load_sources().get(key, {}))
 
     def on_device(self, dev) -> None:
         self.root_mode.setVisible(False)
@@ -114,9 +122,30 @@ class FdroidTab(Tab):
         self.root_mode.setVisible(rooted)
         if rooted:
             self.root_mode.setChecked(True)
-            self.status.setText("Root detected. Root mode is selected; switch to USB mode if you'd rather not.")
+            self.status.setText("Root detected. Root mode is selected; switch to USB cable mode if you'd rather not.")
         else:
-            self.status.setText("No root granted. Shizuku will run in USB / Wireless Debugging mode.")
+            self.status.setText("No root granted. Shizuku will be started over the USB cable.")
+
+    def open_app(self, packages: list[str], label: str) -> None:
+        def work(w):
+            ops = self.app.ops(w)
+            pkg = ops.installed_variant(packages)
+            if not pkg:
+                return None
+            return pkg, ops.launch_app(pkg)
+
+        def done(res):
+            if res is None:
+                warn(self, label, f"{label} isn't installed on the phone yet.")
+            elif not res[1].ok and not res[1].dry:
+                warn(self, label, res[1].text[-800:] or f"Could not open {label}.")
+
+        self.job(work, done)
+
+    def open_client_app(self) -> None:
+        self.open_app(self.names(self.client()), self.client_label())
+
+    # ------------------------------------------------------------ steps
 
     def install_shizuku(self) -> None:
         dev = self.dev
@@ -126,7 +155,13 @@ class FdroidTab(Tab):
             if ops.package_installed(SHIZUKU_PKG):
                 return "installed", None
             if ops.has_play():
-                return "play", ops.open_play_listing(SHIZUKU_PKG)
+                r = ops.open_play_listing(SHIZUKU_PKG)
+                if not r.ok:
+                    return "play-failed", r
+                w.progress.emit("Shizuku's Play listing is open on the phone. Tap Install there. Waiting up to "
+                                "five minutes for it to finish...")
+                return ("play-ok" if ops.wait_for_package(SHIZUKU_PKG, timeout=300) else "play-timeout"), None
+            w.progress.emit("No Play Store on this phone. Downloading Shizuku's latest GitHub release...")
             fetched = downloads.fetch_source("shizuku", hostplatform.cache_dir() / "apks", hostplatform.cache_dir())
             self.app.runner.line.emit(f"# Shizuku {fetched.version}: {fetched.detail}")
             return "github", (fetched, ops.install([str(fetched.path)], reinstall=True))
@@ -134,42 +169,60 @@ class FdroidTab(Tab):
         def done(res):
             kind, r = res
             if kind == "installed":
-                info(self, "Shizuku", "Shizuku is already installed. Skipping.")
-            elif kind == "play":
-                info(self, "Shizuku", "Shizuku's Play listing is open on the phone. Tap Install there. Play keeps "
-                                      "it updated from now on.")
+                self.status.setText("Shizuku is already installed. Next: 2. Install the client.")
+            elif kind == "play-ok":
+                self.status.setText("Shizuku is installed from Play, which keeps it updated. Next: 2. Install the "
+                                    "client.")
+            elif kind == "play-timeout":
+                self.status.setText("Shizuku still isn't installed. Tap Install on the Play listing, then press "
+                                    "1. Get Shizuku again.")
+            elif kind == "play-failed":
+                warn(self, "Shizuku", "Could not open the Play listing:\n" + r.text[-1200:])
             else:
                 fetched, res2 = r
                 if res2.ok:
-                    info(self, "Shizuku", f"Shizuku {fetched.version} installed from GitHub releases "
-                                          f"({fetched.detail}).")
+                    self.status.setText(f"Shizuku {fetched.version} installed from GitHub releases "
+                                        f"({fetched.detail}). Next: 2. Install the client.")
                 else:
                     warn(self, "Shizuku", res2.text[-1500:])
 
-        if confirm_device(self, dev, "Get Shizuku onto the phone (Play listing if Play is present, otherwise "
+        if confirm_device(self, dev, "Get Shizuku onto the phone (its Play listing if Play is present, otherwise "
                                      "the latest GitHub release)"):
-            self.job(work, done)
+            self.status.setText("Checking the phone...")
+            self.app.jobs.run(work, done, self.job_failed, self.status.setText)
 
     def install_client(self) -> None:
         keys = [self.client()] + (["installwithoptions"] if self.iwo.isChecked() else [])
-        if not confirm_device(self, self.dev, "Download and install: " + ", ".join(keys)):
+        labels = [guide.CLIENT_LABELS.get(k, "Install With Options") for k in keys]
+        if not confirm_device(self, self.dev, "Download and install: " + ", ".join(labels)):
             return
 
         def work(w):
             ops = self.app.ops(w)
             srcs = downloads.load_sources()
             out = []
-            for k in keys:
-                if ops.package_installed(srcs[k]["package"]):
-                    out.append(f"{k}: already installed")
+            for k, label in zip(keys, labels):
+                have = ops.installed_variant(downloads.package_names(srcs[k]))
+                if have:
+                    build = "F-Droid build" if have.endswith(".fdroid") else "installed"
+                    out.append(f"{label}: already on the phone ({build}, {have}). Left alone.")
                     continue
+                w.progress.emit(f"Downloading {label}...")
                 fetched = downloads.fetch_source(k, hostplatform.cache_dir() / "apks", hostplatform.cache_dir(),
                                                  ops.abi())
                 r = ops.install([str(fetched.path)], reinstall=True)
-                out.append(f"{k} {fetched.version}: {'installed' if r.ok else 'FAILED'} ({fetched.detail})")
+                if r.ok and not r.dry and not ops.installed_variant(downloads.package_names(srcs[k])):
+                    out.append(f"{label} {fetched.version}: install reported success but the package isn't "
+                               f"on the phone. Check the log.")
+                else:
+                    out.append(f"{label} {fetched.version}: {'installed' if r.ok else 'FAILED'} ({fetched.detail})")
             return out
 
-        self.job(work, lambda lines: info(self, "Client", "\n".join(lines)))
+        def done(lines):
+            self.status.setText("<br>".join(lines) + "<br>Next: 3. Start Shizuku.")
+
+        self.status.setText("Checking the phone...")
+        self.app.jobs.run(work, done, self.job_failed, self.status.setText)
 
     def start_shizuku(self) -> None:
         if not self.dev or not self.dev.adb_ready:
@@ -183,8 +236,10 @@ class FdroidTab(Tab):
             if r.dry:
                 info(self, "Dry run", "Printed, not run.")
             elif r.ok:
-                self.status.setText("Shizuku is running" + (" in root mode." if root else
-                                                             ". It stops at the next reboot."))
+                self.status.setText(
+                    "Shizuku is running" + (" in root mode." if root else ". It stops at the next reboot.") +
+                    f"<br>Next, on the phone: {guide.connect_steps(self.client())} Open the client on the "
+                    "phone does the first part for you.")
             else:
                 warn(self, "Shizuku", (r.err or r.out)[-1500:])
 
@@ -192,15 +247,18 @@ class FdroidTab(Tab):
             self.job(work, done)
 
     def check_status(self) -> None:
+        client, label = self.client(), self.client_label()
+
         def work(w):
             ops = self.app.ops(w)
-            srcs = downloads.load_sources()
+            have_client = ops.installed_variant(self.names(client))
             return {
-                "Shizuku installed": ops.package_installed(SHIZUKU_PKG),
-                "Shizuku running": ops.shizuku_running(),
-                f"{self.client()} installed": ops.package_installed(srcs[self.client()]["package"]),
-                "Play Store present": ops.has_play(),
+                "Shizuku installed": "yes" if ops.package_installed(SHIZUKU_PKG) else "no",
+                "Shizuku running": "yes" if ops.shizuku_running() else "no",
+                f"{label} installed": (f"yes ({have_client})" if have_client else "no"),
+                "Play Store present": "yes" if ops.has_play() else "no",
             }
 
         self.job(work, lambda st: self.status.setText(
-            "  |  ".join(f"{k}: {'yes' if v else 'no'}" for k, v in st.items())))
+            "  |  ".join(f"{k}: {v}" for k, v in st.items())))
+

@@ -51,8 +51,10 @@ class BackupTab(Tab):
 
         ebox = QGroupBox("Extract a .ab file")
         el = QHBoxLayout(ebox)
-        el.addWidget(QLabel("Unencrypted backups unpack directly. Encrypted ones need abe (Android Backup "
-                            "Extractor) and the password."))
+        enote = QLabel("Unencrypted backups unpack directly. Encrypted ones need abe (Android Backup "
+                       "Extractor) and the password.")
+        enote.setWordWrap(True)
+        el.addWidget(enote, 1)
         self.extract_btn = QPushButton("&Extract .ab...")
         el.addWidget(self.extract_btn)
         lay.addWidget(ebox)

@@ -49,6 +49,8 @@ def self_test(log_path: str = "") -> int:
             problems.append(str(exc))
     if not debloat.load_protected():
         problems.append("debloat-protected.txt missing or empty")
+    if not len(debloat.load_common()):
+        problems.append("debloat-common.txt missing or empty")
     try:
         downloads.load_sources()
     except OSError as exc:

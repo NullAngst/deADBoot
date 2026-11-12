@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QFormLayout, 
 from .. import APP_NAME, __version__, hostplatform, parsers
 from ..runner import Command
 from . import themes
-from .common import info, warn
+from .common import info, warn, wrap_long_labels
 from .devicemodel import DeviceModel
 from .dialogs import SettingsDialog, UsbHelpDialog, WirelessDialog, fetch_platform_tools, fetch_scrcpy
 from .tabs.apps import AppsTab
@@ -221,6 +221,24 @@ class MainWindow(QMainWindow):
         self.update_tools()
         for t in self.tab_list:
             t.device_changed(None)
+        wrap_long_labels(self)
+        self.fit_to_screen()
+
+    def fit_to_screen(self) -> None:
+        """Open at 1360x880, or smaller when the screen is smaller, centered on the screen under the cursor.
+
+        The window used to size itself from its widest widget, which on a multi-monitor desktop could
+        stretch it across all of them.
+        """
+        from PyQt6.QtGui import QCursor
+        screen = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        avail = screen.availableGeometry()
+        w = min(1360, int(avail.width() * 0.92))
+        h = min(880, int(avail.height() * 0.92))
+        self.resize(w, h)
+        self.move(avail.x() + (avail.width() - w) // 2, avail.y() + (avail.height() - h) // 2)
 
     # ================================================================ devices
 
