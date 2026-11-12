@@ -1,5 +1,12 @@
 # Changes
 
+2026.11.12 - Build fix
+
+* The window-width test measures in average character widths instead of pixels: at most 150 characters for the window and 110 for any tab
+* When it fails, it prints the font in use and every tab's width, so the log shows which tab grew
+
+Reasons for changes: the Windows build failed on the new test (window 1456 px against a 1100 px limit). The offscreen Qt platform renders text at a different size on each runner; Linux came out at 930 px. Scaling the font 1.5x on Linux gives the same jump while the width in characters stays put (about 100 to 116, against about 300 before the fix), so the width was the font, not a new unwrapped label.
+
 2026.11.12 - UX overhaul / Bug fixes
 
 * Main window no longer opens across several monitors. Long help lines in the Files, Apps and Backup tabs were not word-wrapped, so the Apps tab alone demanded 2161 px; it now needs under 700 and the whole window under 950. The window opens at 1360x880 or 92% of the screen it starts on, whichever is smaller, centered. A safety net wraps any long label, and a new test fails if any tab grows past 820 px

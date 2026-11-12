@@ -118,12 +118,27 @@ def _window(qapp):
 
 
 def test_window_fits_one_ordinary_monitor(qapp):
+    """Measured in average character widths, not pixels.
+
+    The offscreen platform picks a different font and size on each OS (the Windows runner's text came out
+    about 1.5x wider than Linux's), so a pixel limit fails on one runner and passes on another. The bug this
+    guards against was a few hundred characters of unwrapped help text on one line: about 300 characters
+    wide before the fix, about 115 after, at any font size.
+    """
+    from PyQt6.QtGui import QFontMetrics
     win = _window(qapp)
     try:
-        width = win.minimumSizeHint().width()
-        assert width <= 1100, f"main window needs {width}px; a long unwrapped label or button row crept back in"
-        for tab in win.tab_list:
-            assert tab.minimumSizeHint().width() <= 820, f"{tab.title} needs {tab.minimumSizeHint().width()}px"
+        char = max(1, QFontMetrics(qapp.font()).averageCharWidth())
+        f = qapp.font()
+        widths = {t.title: t.minimumSizeHint().width() for t in win.tab_list}
+        window = win.minimumSizeHint().width()
+        report = (f"font {f.family()} {f.pointSizeF()}pt, average character {char}px; window {window}px = "
+                  f"{window / char:.0f} chars; " +
+                  ", ".join(f"{k} {v}px = {v / char:.0f} chars" for k, v in widths.items()))
+        assert window / char <= 150, "main window too wide, a long unwrapped label or button row crept back in: " \
+            + report
+        wide = [k for k, v in widths.items() if v / char > 110]
+        assert not wide, f"too wide: {', '.join(wide)}. " + report
     finally:
         win.close()
 
